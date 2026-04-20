@@ -36,7 +36,7 @@ export default function ConversaDetail() {
       const [{ data: msgs }, { data: prof }] = await Promise.all([
         supabase
           .from("mensagens_internas")
-          .select("id,remetente_id,destinatario_id,conteudo,lida,created_at")
+          .select("id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at")
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
           )
