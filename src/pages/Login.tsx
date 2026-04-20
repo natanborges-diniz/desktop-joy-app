@@ -38,16 +38,31 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-header px-4 py-10">
-      <div className="w-full max-w-md animate-fade-in">
-        <header className="mb-8 text-center text-header-foreground">
-          <img
-            src={infocoLogo}
-            alt="Infoco Optical Business"
-            className="mx-auto mb-5 h-28 w-auto select-none drop-shadow-lg"
-            draggable={false}
-          />
-          <p className="mt-1 text-sm text-white/75">Comunicação interna do Grupo Infoco</p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-header px-4 py-10">
+      {/* Glow ambiente periwinkle no fundo escuro */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 right-[-120px] h-[360px] w-[360px] rounded-full bg-primary-glow/20 blur-3xl"
+      />
+
+      <div className="relative z-10 w-full max-w-md animate-fade-in">
+        <header className="mb-8 flex flex-col items-center text-center text-header-foreground">
+          <div className="mb-5 flex h-32 w-32 items-center justify-center rounded-3xl bg-white p-5 shadow-floating ring-1 ring-white/20">
+            <img
+              src={infocoLogo}
+              alt="Infoco Optical Business"
+              width={1024}
+              height={1024}
+              className="h-full w-full select-none object-contain"
+              draggable={false}
+            />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Infoco Messenger</h1>
+          <p className="mt-1.5 text-sm text-white/70">Comunicação interna do Grupo Infoco</p>
         </header>
 
         <Card className="p-6 shadow-floating">
