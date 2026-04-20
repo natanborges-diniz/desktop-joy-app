@@ -6,8 +6,10 @@ import { supabase, type MensagemInterna, type Profile } from "@/integrations/sup
 import { useAuth } from "@/auth/auth-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Search, MessageSquare, Plus, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 
 type Conversation = {
   otherId: string;
