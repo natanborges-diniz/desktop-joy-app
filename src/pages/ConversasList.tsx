@@ -148,7 +148,7 @@ export default function ConversasList() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : conversations.length === 0 ? (
-          <EmptyState />
+          <EmptyState onNova={() => setNovaOpen(true)} />
         ) : (
           <ul className="divide-y divide-border">
             {conversations.map((c) => (
@@ -199,11 +199,22 @@ export default function ConversasList() {
           </ul>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => setNovaOpen(true)}
+        aria-label="Nova conversa"
+        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-floating transition-transform hover:scale-105 active:scale-95 md:hidden"
+      >
+        <PenSquare className="h-5 w-5" />
+      </button>
+
+      <NovaConversaDialog open={novaOpen} onOpenChange={setNovaOpen} />
     </div>
   );
 }
 
-function EmptyState() {
+function EmptyState({ onNova }: { onNova?: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
@@ -211,8 +222,14 @@ function EmptyState() {
       </div>
       <h2 className="text-lg font-semibold text-foreground">Nenhuma conversa ainda</h2>
       <p className="max-w-xs text-sm text-muted-foreground">
-        Quando você ou um colega trocar a primeira mensagem, ela aparecerá aqui.
+        Comece uma nova conversa com um colega do Grupo Atrium.
       </p>
+      {onNova && (
+        <Button onClick={onNova} className="mt-2 gap-2">
+          <Plus className="h-4 w-4" />
+          Nova conversa
+        </Button>
+      )}
     </div>
   );
 }
