@@ -1,7 +1,7 @@
 {
-  "name": "Atrium Messenger",
-  "short_name": "Atrium",
-  "description": "Comunicação interna, demandas e notificações do Grupo Atrium.",
+  "name": "Infoco Messenger",
+  "short_name": "Infoco",
+  "description": "Comunicação interna, demandas e notificações do Grupo Infoco.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
