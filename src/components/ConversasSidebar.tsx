@@ -75,7 +75,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
     void load();
 
     const channel = supabase
-      .channel("conversas-sidebar")
+      .channel(`conversas-sidebar-${user.id}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "mensagens_internas" },
