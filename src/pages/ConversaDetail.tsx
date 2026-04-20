@@ -166,7 +166,7 @@ export default function ConversaDetail() {
           asChild
           variant="ghost"
           size="icon"
-          className="text-header-foreground hover:bg-white/10"
+          className="text-header-foreground hover:bg-white/10 md:hidden"
         >
           <Link to="/" aria-label="Voltar">
             <ArrowLeft className="h-5 w-5" />
