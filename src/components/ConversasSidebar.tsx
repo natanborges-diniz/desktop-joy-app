@@ -163,8 +163,8 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
             Nova
           </Button>
         </div>
-        <div className="relative pb-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-[calc(50%+6px)] text-muted-foreground" />
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -176,6 +176,23 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                 : "border-0 bg-white/95 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-white/50",
             )}
           />
+        </div>
+        <div className="flex gap-1.5 py-2.5">
+          <FilterChip
+            active={filter === "todas"}
+            onClick={() => setFilter("todas")}
+            embedded={embedded}
+          >
+            Todas
+          </FilterChip>
+          <FilterChip
+            active={filter === "nao_lidas"}
+            onClick={() => setFilter("nao_lidas")}
+            embedded={embedded}
+            badge={totalUnread}
+          >
+            Não lidas
+          </FilterChip>
         </div>
       </header>
 
