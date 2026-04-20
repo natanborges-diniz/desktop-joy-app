@@ -296,3 +296,50 @@ function EmptyState({ onNova }: { onNova?: () => void }) {
     </div>
   );
 }
+
+function FilterChip({
+  active,
+  onClick,
+  embedded,
+  badge,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  embedded: boolean;
+  badge?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? embedded
+            ? "bg-primary text-primary-foreground"
+            : "bg-white text-primary"
+          : embedded
+            ? "bg-surface-muted text-muted-foreground hover:bg-accent"
+            : "bg-white/15 text-header-foreground hover:bg-white/25",
+      )}
+    >
+      {children}
+      {badge !== undefined && badge > 0 && (
+        <span
+          className={cn(
+            "inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold",
+            active
+              ? embedded
+                ? "bg-primary-foreground/20 text-primary-foreground"
+                : "bg-primary text-primary-foreground"
+              : "bg-primary text-primary-foreground",
+          )}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </button>
+  );
+}
