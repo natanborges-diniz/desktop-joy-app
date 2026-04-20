@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, MessageCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import infocoLogo from "@/assets/infoco-logo.png";
 
 export default function Login() {
   const { session, signIn, loading: authLoading } = useAuth();
@@ -40,11 +41,13 @@ export default function Login() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-header px-4 py-10">
       <div className="w-full max-w-md animate-fade-in">
         <header className="mb-8 text-center text-header-foreground">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
-            <MessageCircle className="h-8 w-8" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Infoco Messenger</h1>
-          <p className="mt-1 text-sm text-white/80">Comunicação interna do Grupo Infoco</p>
+          <img
+            src={infocoLogo}
+            alt="Infoco Optical Business"
+            className="mx-auto mb-5 h-28 w-auto select-none drop-shadow-lg"
+            draggable={false}
+          />
+          <p className="mt-1 text-sm text-white/75">Comunicação interna do Grupo Infoco</p>
         </header>
 
         <Card className="p-6 shadow-floating">
@@ -79,7 +82,7 @@ export default function Login() {
           </form>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-white/70">
+        <p className="mt-6 text-center text-xs text-white/60">
           Use a mesma conta do portal Infoco Connect
         </p>
       </div>

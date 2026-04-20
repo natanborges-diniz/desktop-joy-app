@@ -44,9 +44,12 @@ export default function AppShell() {
     <div className="flex h-[100dvh] w-full bg-background">
       {/* Rail estreito de ícones — desktop */}
       <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar py-3 md:flex">
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-header text-header-foreground shadow-soft">
-          <MessageSquare className="h-5 w-5" />
-        </div>
+        <img
+          src="/icon-192.png"
+          alt="Infoco"
+          className="mb-3 h-10 w-10 rounded-xl shadow-soft"
+          draggable={false}
+        />
         <nav className="flex flex-1 flex-col items-center gap-1.5">
           {items.map(({ to, label, icon: Icon, exact, badge }) => (
             <NavLink
@@ -130,9 +133,12 @@ export default function AppShell() {
 function ChatPlaceholder() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 bg-surface-muted px-6 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-header text-header-foreground shadow-elevated">
-        <MessageSquare className="h-9 w-9" />
-      </div>
+      <img
+        src="/icon-512.png"
+        alt="Infoco"
+        className="h-20 w-20 rounded-2xl shadow-elevated"
+        draggable={false}
+      />
       <h2 className="text-lg font-semibold text-foreground">Selecione uma conversa</h2>
       <p className="max-w-sm text-sm text-muted-foreground">
         Escolha um contato à esquerda para começar a trocar mensagens.

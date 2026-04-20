@@ -2,37 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Infoco Messenger — Light Corporate (estilo WhatsApp Business)
-   Todas as cores em HSL. Tokens semânticos consumidos por tailwind.config.ts. */
+/* Infoco Messenger — Design System alinhado à marca Infoco Optical Business
+   Paleta: preto #0E0F12 + azul periwinkle #7B9BD4. Todas as cores em HSL. */
 
 @layer base {
   :root {
     /* Surfaces */
-    --background: 150 20% 97%;
-    --foreground: 200 18% 12%;
+    --background: 220 25% 97%;
+    --foreground: 225 12% 6%;
 
     --surface: 0 0% 100%;
-    --surface-muted: 150 14% 94%;
+    --surface-muted: 220 20% 95%;
 
     --card: 0 0% 100%;
-    --card-foreground: 200 18% 12%;
+    --card-foreground: 225 12% 6%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 200 18% 12%;
+    --popover-foreground: 225 12% 6%;
 
-    /* Brand — verde-azulado profissional */
-    --primary: 168 76% 28%;
+    /* Brand — azul periwinkle Infoco */
+    --primary: 217 47% 66%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 168 70% 42%;
+    --primary-glow: 217 38% 53%;
 
-    --secondary: 150 14% 92%;
-    --secondary-foreground: 200 18% 16%;
+    --secondary: 220 20% 94%;
+    --secondary-foreground: 225 12% 12%;
 
-    --muted: 150 12% 94%;
-    --muted-foreground: 200 10% 42%;
+    --muted: 220 18% 95%;
+    --muted-foreground: 220 10% 42%;
 
-    --accent: 168 60% 92%;
-    --accent-foreground: 168 76% 22%;
+    --accent: 217 60% 93%;
+    --accent-foreground: 217 38% 35%;
 
     --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -40,78 +40,78 @@
     --success: 142 70% 38%;
     --warning: 38 92% 50%;
 
-    --border: 150 14% 88%;
-    --input: 150 14% 88%;
-    --ring: 168 76% 28%;
+    --border: 220 18% 90%;
+    --input: 220 18% 90%;
+    --ring: 217 47% 66%;
 
     --radius: 0.75rem;
 
     /* Chat bubbles */
-    --bubble-out: 168 70% 90%;
-    --bubble-out-foreground: 200 18% 12%;
+    --bubble-out: 217 60% 91%;
+    --bubble-out-foreground: 225 18% 14%;
     --bubble-in: 0 0% 100%;
-    --bubble-in-foreground: 200 18% 12%;
+    --bubble-in-foreground: 225 18% 14%;
 
-    /* Header / nav */
-    --header: 168 76% 22%;
+    /* Header / nav — preto Infoco */
+    --header: 225 12% 6%;
     --header-foreground: 0 0% 100%;
 
     /* Effects */
-    --shadow-sm: 0 1px 2px 0 hsl(200 18% 12% / 0.06);
-    --shadow-md: 0 4px 12px -2px hsl(200 18% 12% / 0.08);
-    --shadow-lg: 0 12px 32px -8px hsl(200 18% 12% / 0.14);
-    --gradient-header: linear-gradient(135deg, hsl(168 76% 22%), hsl(168 70% 32%));
+    --shadow-sm: 0 1px 2px 0 hsl(225 12% 6% / 0.06);
+    --shadow-md: 0 4px 12px -2px hsl(225 12% 6% / 0.08);
+    --shadow-lg: 0 12px 32px -8px hsl(225 12% 6% / 0.16);
+    --gradient-header: linear-gradient(135deg, hsl(225 12% 6%), hsl(225 14% 18%));
 
     /* Sidebar (desktop) */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 200 18% 18%;
-    --sidebar-primary: 168 76% 28%;
+    --sidebar-foreground: 225 12% 14%;
+    --sidebar-primary: 217 47% 66%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 150 14% 94%;
-    --sidebar-accent-foreground: 200 18% 16%;
-    --sidebar-border: 150 14% 88%;
-    --sidebar-ring: 168 76% 28%;
+    --sidebar-accent: 220 20% 95%;
+    --sidebar-accent-foreground: 225 12% 12%;
+    --sidebar-border: 220 18% 90%;
+    --sidebar-ring: 217 47% 66%;
   }
 
   .dark {
-    --background: 200 22% 8%;
-    --foreground: 150 10% 92%;
-    --surface: 200 20% 11%;
-    --surface-muted: 200 18% 14%;
-    --card: 200 20% 11%;
-    --card-foreground: 150 10% 92%;
-    --popover: 200 20% 11%;
-    --popover-foreground: 150 10% 92%;
-    --primary: 168 70% 42%;
-    --primary-foreground: 200 22% 8%;
-    --primary-glow: 168 70% 52%;
-    --secondary: 200 18% 16%;
-    --secondary-foreground: 150 10% 92%;
-    --muted: 200 18% 16%;
-    --muted-foreground: 150 8% 62%;
-    --accent: 168 50% 22%;
-    --accent-foreground: 168 70% 82%;
+    --background: 222 16% 6%;
+    --foreground: 220 15% 92%;
+    --surface: 222 14% 9%;
+    --surface-muted: 222 14% 12%;
+    --card: 222 14% 9%;
+    --card-foreground: 220 15% 92%;
+    --popover: 222 14% 9%;
+    --popover-foreground: 220 15% 92%;
+    --primary: 217 50% 72%;
+    --primary-foreground: 222 16% 6%;
+    --primary-glow: 217 50% 60%;
+    --secondary: 222 14% 14%;
+    --secondary-foreground: 220 15% 92%;
+    --muted: 222 14% 14%;
+    --muted-foreground: 220 10% 62%;
+    --accent: 217 35% 22%;
+    --accent-foreground: 217 60% 86%;
     --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 60% 48%;
     --warning: 38 92% 55%;
-    --border: 200 18% 20%;
-    --input: 200 18% 20%;
-    --ring: 168 70% 42%;
-    --bubble-out: 168 50% 24%;
-    --bubble-out-foreground: 150 10% 96%;
-    --bubble-in: 200 20% 14%;
-    --bubble-in-foreground: 150 10% 92%;
-    --header: 200 24% 6%;
-    --header-foreground: 150 10% 92%;
-    --sidebar-background: 200 22% 9%;
-    --sidebar-foreground: 150 10% 88%;
-    --sidebar-primary: 168 70% 42%;
-    --sidebar-primary-foreground: 200 22% 8%;
-    --sidebar-accent: 200 18% 14%;
-    --sidebar-accent-foreground: 150 10% 92%;
-    --sidebar-border: 200 18% 18%;
-    --sidebar-ring: 168 70% 42%;
+    --border: 222 14% 18%;
+    --input: 222 14% 18%;
+    --ring: 217 50% 72%;
+    --bubble-out: 217 35% 24%;
+    --bubble-out-foreground: 220 15% 96%;
+    --bubble-in: 222 14% 12%;
+    --bubble-in-foreground: 220 15% 92%;
+    --header: 222 18% 4%;
+    --header-foreground: 220 15% 92%;
+    --sidebar-background: 222 16% 7%;
+    --sidebar-foreground: 220 15% 88%;
+    --sidebar-primary: 217 50% 72%;
+    --sidebar-primary-foreground: 222 16% 6%;
+    --sidebar-accent: 222 14% 12%;
+    --sidebar-accent-foreground: 220 15% 92%;
+    --sidebar-border: 222 14% 16%;
+    --sidebar-ring: 217 50% 72%;
   }
 }
 
