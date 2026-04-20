@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, MessageSquare, Plus, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
+import { usePresence } from "@/hooks/usePresence";
 
 type Conversation = {
   otherId: string;
@@ -32,7 +33,9 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   const [messages, setMessages] = useState<MensagemInterna[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"todas" | "nao_lidas">("todas");
   const [novaOpen, setNovaOpen] = useState(false);
+  const onlineIds = usePresence();
 
   useEffect(() => {
     if (!user) return;
@@ -108,6 +111,9 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       }
     }
     let list = Array.from(map.values());
+    if (filter === "nao_lidas") {
+      list = list.filter((c) => c.unread > 0);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -121,7 +127,16 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       (a, b) =>
         new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime(),
     );
-  }, [messages, profiles, user, search]);
+  }, [messages, profiles, user, search, filter]);
+
+  const totalUnread = useMemo(
+    () =>
+      messages.reduce(
+        (acc, m) => (m.destinatario_id === user?.id && !m.lida ? acc + 1 : acc),
+        0,
+      ),
+    [messages, user],
+  );
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -150,8 +165,8 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
             Nova
           </Button>
         </div>
-        <div className="relative pb-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-[calc(50%+6px)] text-muted-foreground" />
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -163,6 +178,23 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                 : "border-0 bg-white/95 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-white/50",
             )}
           />
+        </div>
+        <div className="flex gap-1.5 py-2.5">
+          <FilterChip
+            active={filter === "todas"}
+            onClick={() => setFilter("todas")}
+            embedded={embedded}
+          >
+            Todas
+          </FilterChip>
+          <FilterChip
+            active={filter === "nao_lidas"}
+            onClick={() => setFilter("nao_lidas")}
+            embedded={embedded}
+            badge={totalUnread}
+          >
+            Não lidas
+          </FilterChip>
         </div>
       </header>
 
@@ -190,6 +222,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                       nome={c.profile?.nome}
                       email={c.profile?.email}
                       url={c.profile?.avatar_url}
+                      online={onlineIds.has(c.otherId)}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
@@ -264,5 +297,52 @@ function EmptyState({ onNova }: { onNova?: () => void }) {
         </Button>
       )}
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  embedded,
+  badge,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  embedded: boolean;
+  badge?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? embedded
+            ? "bg-primary text-primary-foreground"
+            : "bg-white text-primary"
+          : embedded
+            ? "bg-surface-muted text-muted-foreground hover:bg-accent"
+            : "bg-white/15 text-header-foreground hover:bg-white/25",
+      )}
+    >
+      {children}
+      {badge !== undefined && badge > 0 && (
+        <span
+          className={cn(
+            "inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold",
+            active
+              ? embedded
+                ? "bg-primary-foreground/20 text-primary-foreground"
+                : "bg-primary text-primary-foreground"
+              : "bg-primary text-primary-foreground",
+          )}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </button>
   );
 }

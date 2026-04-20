@@ -11,6 +11,8 @@ import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
+import { usePresence } from "@/hooks/usePresence";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 function formatDayLabel(d: Date) {
   if (isToday(d)) return "Hoje";
@@ -28,6 +30,9 @@ export default function ConversaDetail() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const onlineIds = usePresence();
+  const isOtherOnline = otherId ? onlineIds.has(otherId) : false;
+  const { otherTyping, sendTyping } = useTypingIndicator(user?.id, otherId);
 
   useEffect(() => {
     if (!user || !otherId) return;
@@ -166,20 +171,30 @@ export default function ConversaDetail() {
           asChild
           variant="ghost"
           size="icon"
-          className="text-header-foreground hover:bg-white/10"
+          className="text-header-foreground hover:bg-white/10 md:hidden"
         >
           <Link to="/" aria-label="Voltar">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <UserAvatar nome={other?.nome} email={other?.email} url={other?.avatar_url} size="sm" />
+        <UserAvatar
+          nome={other?.nome}
+          email={other?.email}
+          url={other?.avatar_url}
+          size="sm"
+          online={isOtherOnline}
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold leading-tight">
             {other?.nome || other?.email || "Conversa"}
           </p>
-          {other?.cargo && (
-            <p className="truncate text-[11px] leading-tight text-white/75">{other.cargo}</p>
-          )}
+          <p className="truncate text-[11px] leading-tight text-white/75">
+            {otherTyping
+              ? "digitando…"
+              : isOtherOnline
+                ? "online"
+                : other?.cargo || ""}
+          </p>
         </div>
         <Button
           variant="ghost"
@@ -248,7 +263,10 @@ export default function ConversaDetail() {
       >
         <Textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (e.target.value.length > 0) sendTyping();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
