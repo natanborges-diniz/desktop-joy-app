@@ -98,15 +98,25 @@ export default function ConversaDetail() {
   async function send(e: FormEvent) {
     e.preventDefault();
     const conteudo = text.trim();
-    if (!conteudo || !user || !otherId) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const senderId = session?.user?.id ?? user?.id;
 
-    const conversaId = makeConversaId(user.id, otherId);
+    if (!conteudo || !senderId || !otherId) return;
+    if (!session?.access_token) {
+      toast.error("Sua sessão expirou. Faça login novamente.");
+      navigate("/login", { replace: true, state: { from: { pathname: `/conversas/${otherId}` } } });
+      return;
+    }
+
+    const conversaId = makeConversaId(senderId, otherId);
 
     setSending(true);
     const optimistic: MensagemInterna = {
       id: `tmp-${crypto.randomUUID()}`,
       conversa_id: conversaId,
-      remetente_id: user.id,
+      remetente_id: senderId,
       destinatario_id: otherId,
       conteudo,
       lida: false,
@@ -119,7 +129,7 @@ export default function ConversaDetail() {
       .from("mensagens_internas")
       .insert({
         conversa_id: conversaId,
-        remetente_id: user.id,
+        remetente_id: senderId,
         destinatario_id: otherId,
         conteudo,
       })
@@ -129,9 +139,16 @@ export default function ConversaDetail() {
     setSending(false);
 
     if (error) {
-      toast.error("Não foi possível enviar a mensagem");
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setText(conteudo);
+      const authError =
+        error.code === "42501" || /row-level security|permission|jwt|auth/i.test(error.message);
+      toast.error(
+        authError ? "Sua sessão expirou. Faça login novamente." : "Não foi possível enviar a mensagem",
+      );
+      if (authError) {
+        navigate("/login", { replace: true, state: { from: { pathname: `/conversas/${otherId}` } } });
+      }
       return;
     }
 
