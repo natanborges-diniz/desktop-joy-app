@@ -34,7 +34,7 @@ export default function ConversasList() {
       setLoading(true);
       const { data, error } = await supabase
         .from("mensagens_internas")
-        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at,tipo,anexo_url")
+        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at")
         .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(500);
