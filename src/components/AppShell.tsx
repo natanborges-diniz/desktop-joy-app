@@ -1,16 +1,36 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Bell, ClipboardList, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
 
 const items = [
-  { to: "/", label: "Conversas", icon: MessageSquare, exact: true },
-  { to: "/demandas", label: "Demandas", icon: ClipboardList },
-  { to: "/notificacoes", label: "Avisos", icon: Bell },
-  { to: "/perfil", label: "Perfil", icon: User },
+  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" as const },
+  { to: "/demandas", label: "Demandas", icon: ClipboardList, exact: false, badge: null },
+  { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
+  { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null },
 ];
+
+function Badge({ count }: { count: number }) {
+  if (!count) return null;
+  return (
+    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+function MobileBadge({ count }: { count: number }) {
+  if (!count) return null;
+  return (
+    <span className="absolute -right-1.5 -top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 export default function AppShell() {
   const location = useLocation();
+  const unread = useUnreadCount();
   // No mobile, esconder bottom nav quando dentro de uma conversa específica
   const hideBottomNav = /^\/conversas\/[^/]+/.test(location.pathname);
 
@@ -28,7 +48,7 @@ export default function AppShell() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {items.map(({ to, label, icon: Icon, exact }) => (
+          {items.map(({ to, label, icon: Icon, exact, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -43,7 +63,8 @@ export default function AppShell() {
               }
             >
               <Icon className="h-5 w-5" />
-              {label}
+              <span>{label}</span>
+              {badge === "messages" && <Badge count={unread} />}
             </NavLink>
           ))}
         </nav>
@@ -59,7 +80,7 @@ export default function AppShell() {
         {!hideBottomNav && (
           <nav className="border-t border-border bg-surface pb-safe md:hidden">
             <div className="grid grid-cols-4">
-              {items.map(({ to, label, icon: Icon, exact }) => (
+              {items.map(({ to, label, icon: Icon, exact, badge }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -71,7 +92,10 @@ export default function AppShell() {
                     )
                   }
                 >
-                  <Icon className="h-5 w-5" />
+                  <span className="relative">
+                    <Icon className="h-5 w-5" />
+                    {badge === "messages" && <MobileBadge count={unread} />}
+                  </span>
                   {label}
                 </NavLink>
               ))}
