@@ -1,23 +1,43 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase, type MensagemInterna, type Profile } from "@/integrations/supabase/client";
+import {
+  supabase,
+  ANEXOS_BUCKET,
+  type MensagemInterna,
+  type Profile,
+} from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Loader2, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  FileText,
+  Loader2,
+  Paperclip,
+  Send,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
 import { usePresence } from "@/hooks/usePresence";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
+const MAX_FILE_MB = 10;
+const ACCEPTED_TYPES = "image/*,application/pdf";
+
 function formatDayLabel(d: Date) {
   if (isToday(d)) return "Hoje";
   if (isYesterday(d)) return "Ontem";
   return format(d, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+}
+
+function isImage(tipo?: string | null) {
+  return !!tipo && tipo.startsWith("image/");
 }
 
 export default function ConversaDetail() {
@@ -29,6 +49,10 @@ export default function ConversaDetail() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const onlineIds = usePresence();
   const isOtherOnline = otherId ? onlineIds.has(otherId) : false;
@@ -42,7 +66,9 @@ export default function ConversaDetail() {
       const [{ data: msgs }, { data: prof }] = await Promise.all([
         supabase
           .from("mensagens_internas")
-          .select("id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at")
+          .select(
+            "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo",
+          )
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
           )
@@ -60,7 +86,6 @@ export default function ConversaDetail() {
       setOther((prof ?? null) as Profile | null);
       setLoading(false);
 
-      // Marcar mensagens recebidas como lidas
       const unread = (msgs ?? []).filter(
         (m) => m.destinatario_id === user!.id && !m.lida,
       );
@@ -100,12 +125,47 @@ export default function ConversaDetail() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // Limpar preview blob quando trocar/remover arquivo
+  useEffect(() => {
+    return () => {
+      if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    };
+  }, [pendingPreview]);
+
+  function handleFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permitir reescolher o mesmo arquivo
+    if (!file) return;
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      toast.error(`Arquivo muito grande. Máximo ${MAX_FILE_MB}MB.`);
+      return;
+    }
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(file);
+    setPendingPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+  }
+
+  function clearPending() {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview(null);
+  }
+
+  async function uploadAnexo(file: File, senderId: string) {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const path = `${senderId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage
+      .from(ANEXOS_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from(ANEXOS_BUCKET).getPublicUrl(path);
+    return { url: data.publicUrl, tipo: file.type };
+  }
+
   async function send(e: FormEvent) {
     e.preventDefault();
     const conteudo = text.trim();
 
-    // Tenta usar a sessão atual; se não houver token, tenta refresh silencioso
-    // (sessão é persistente neste dispositivo — sem forçar novo login).
     let { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
       const { data: refreshed } = await supabase.auth.refreshSession();
@@ -113,22 +173,48 @@ export default function ConversaDetail() {
     }
     const senderId = session?.user?.id ?? user?.id;
 
-    if (!conteudo || !senderId || !otherId) return;
+    if ((!conteudo && !pendingFile) || !senderId || !otherId) return;
 
     const conversaId = makeConversaId(senderId, otherId);
+    const fileToSend = pendingFile;
+    const previewUrl = pendingPreview;
 
     setSending(true);
+
     const optimistic: MensagemInterna = {
       id: `tmp-${crypto.randomUUID()}`,
       conversa_id: conversaId,
       remetente_id: senderId,
       destinatario_id: otherId,
-      conteudo,
+      conteudo: conteudo || (fileToSend ? "" : ""),
       lida: false,
       created_at: new Date().toISOString(),
+      anexo_url: fileToSend && previewUrl ? previewUrl : null,
+      anexo_tipo: fileToSend?.type ?? null,
     };
     setMessages((prev) => [...prev, optimistic]);
     setText("");
+    setPendingFile(null);
+    setPendingPreview(null);
+
+    let anexo_url: string | null = null;
+    let anexo_tipo: string | null = null;
+
+    if (fileToSend) {
+      try {
+        const up = await uploadAnexo(fileToSend, senderId);
+        anexo_url = up.url;
+        anexo_tipo = up.tipo;
+      } catch (err) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        setText(conteudo);
+        setPendingFile(fileToSend);
+        setPendingPreview(previewUrl);
+        setSending(false);
+        toast.error("Falha ao enviar o anexo.");
+        return;
+      }
+    }
 
     const { data, error } = await supabase
       .from("mensagens_internas")
@@ -137,8 +223,12 @@ export default function ConversaDetail() {
         remetente_id: senderId,
         destinatario_id: otherId,
         conteudo,
+        anexo_url,
+        anexo_tipo,
       })
-      .select("id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at")
+      .select(
+        "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo",
+      )
       .single();
 
     setSending(false);
@@ -155,7 +245,7 @@ export default function ConversaDetail() {
     );
   }
 
-  // Agrupar por dia para inserir separadores
+  // Agrupar por dia
   const grouped: { day: string; items: MensagemInterna[] }[] = [];
   for (const m of messages) {
     const day = formatDayLabel(new Date(m.created_at));
@@ -163,6 +253,8 @@ export default function ConversaDetail() {
     if (last?.day === day) last.items.push(m);
     else grouped.push({ day, items: [m] });
   }
+
+  const canSend = (!!text.trim() || !!pendingFile) && !sending;
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
@@ -230,15 +322,47 @@ export default function ConversaDetail() {
                 </div>
                 {g.items.map((m) => {
                   const mine = m.remetente_id === user?.id;
+                  const hasAnexo = !!m.anexo_url;
                   return (
                     <div key={m.id} className={cn("flex animate-slide-up", mine ? "justify-end" : "justify-start")}>
                       <div
                         className={cn(
-                          "max-w-[78%] px-3 py-2 text-sm shadow-soft md:max-w-[60%]",
+                          "max-w-[78%] overflow-hidden px-3 py-2 text-sm shadow-soft md:max-w-[60%]",
                           mine ? "bubble-out" : "bubble-in",
                         )}
                       >
-                        <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
+                        {hasAnexo && isImage(m.anexo_tipo) && (
+                          <a
+                            href={m.anexo_url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mb-1 block -mx-1 -mt-1"
+                          >
+                            <img
+                              src={m.anexo_url!}
+                              alt="Anexo"
+                              loading="lazy"
+                              className="max-h-72 w-full rounded-lg object-cover"
+                            />
+                          </a>
+                        )}
+                        {hasAnexo && !isImage(m.anexo_tipo) && (
+                          <a
+                            href={m.anexo_url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "mb-1 flex items-center gap-2 rounded-lg p-2 text-xs underline-offset-2 hover:underline",
+                              mine ? "bg-foreground/5" : "bg-surface-muted",
+                            )}
+                          >
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="truncate">Abrir anexo</span>
+                          </a>
+                        )}
+                        {m.conteudo && (
+                          <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
+                        )}
                         <p
                           className={cn(
                             "mt-1 text-right text-[10px]",
@@ -257,10 +381,85 @@ export default function ConversaDetail() {
         )}
       </div>
 
+      {/* Preview do anexo pendente */}
+      {pendingFile && (
+        <div className="border-t border-border bg-surface px-3 py-2 md:px-6">
+          <div className="mx-auto flex max-w-2xl items-center gap-3 rounded-xl border border-border bg-surface-muted p-2">
+            {pendingPreview ? (
+              <img
+                src={pendingPreview}
+                alt="Pré-visualização"
+                className="h-14 w-14 rounded-md object-cover"
+              />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                <FileText className="h-6 w-6" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{pendingFile.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {(pendingFile.size / 1024).toFixed(0)} KB
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={clearPending}
+              aria-label="Remover anexo"
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={send}
         className="flex items-end gap-2 border-t border-border bg-surface px-3 py-2 pb-safe md:px-6"
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_TYPES}
+          className="hidden"
+          onChange={handleFileSelected}
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileSelected}
+        />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Anexar arquivo"
+          disabled={sending}
+        >
+          <Paperclip className="h-5 w-5" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:text-foreground md:hidden"
+          onClick={() => cameraInputRef.current?.click()}
+          aria-label="Tirar foto"
+          disabled={sending}
+        >
+          <Camera className="h-5 w-5" />
+        </Button>
+
         <Textarea
           value={text}
           onChange={(e) => {
@@ -277,7 +476,12 @@ export default function ConversaDetail() {
           rows={1}
           className="max-h-32 min-h-[40px] resize-none rounded-2xl border-border bg-surface-muted"
         />
-        <Button type="submit" size="icon" className="h-10 w-10 shrink-0 rounded-full" disabled={sending || !text.trim()}>
+        <Button
+          type="submit"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full"
+          disabled={!canSend}
+        >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
