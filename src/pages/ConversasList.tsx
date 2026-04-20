@@ -121,6 +121,15 @@ export default function ConversasList() {
       <header className="bg-gradient-header px-4 pt-safe text-header-foreground">
         <div className="flex h-14 items-center justify-between md:h-16">
           <h1 className="text-lg font-semibold md:text-xl">Conversas</h1>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setNovaOpen(true)}
+            className="hidden gap-2 bg-white/15 text-header-foreground backdrop-blur hover:bg-white/25 md:inline-flex"
+          >
+            <PenSquare className="h-4 w-4" />
+            Nova conversa
+          </Button>
         </div>
         <div className="relative pb-3">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-[calc(50%+6px)] text-muted-foreground" />
