@@ -36,7 +36,7 @@ export default function ConversaDetail() {
       const [{ data: msgs }, { data: prof }] = await Promise.all([
         supabase
           .from("mensagens_internas")
-          .select("id,remetente_id,destinatario_id,conteudo,lida,created_at,tipo,anexo_url")
+          .select("id,remetente_id,destinatario_id,conteudo,lida,created_at")
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
           )
@@ -106,8 +106,6 @@ export default function ConversaDetail() {
       conteudo,
       lida: false,
       created_at: new Date().toISOString(),
-      tipo: "texto",
-      anexo_url: null,
     };
     setMessages((prev) => [...prev, optimistic]);
     setText("");
@@ -117,7 +115,6 @@ export default function ConversaDetail() {
         remetente_id: user.id,
         destinatario_id: otherId,
         conteudo,
-        tipo: "texto",
       })
       .select()
       .single();

@@ -32,6 +32,4 @@ export type MensagemInterna = {
   conteudo: string;
   lida: boolean | null;
   created_at: string;
-  tipo?: string | null;
-  anexo_url?: string | null;
 };
