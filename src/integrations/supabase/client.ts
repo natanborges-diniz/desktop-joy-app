@@ -36,4 +36,8 @@ export type MensagemInterna = {
   conteudo: string;
   lida: boolean | null;
   created_at: string;
+  anexo_url?: string | null;
+  anexo_tipo?: string | null;
 };
+
+export const ANEXOS_BUCKET = "mensagens-anexos";
