@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Bell, ClipboardList, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 
 const items = [
@@ -32,6 +33,7 @@ function RailBadge({ count }: { count: number }) {
 export default function AppShell() {
   const location = useLocation();
   const unread = useUnreadCount();
+  useDocumentTitleBadge(unread);
 
   const isHome = location.pathname === "/";
   const isConversaRoute = isHome || /^\/conversas\/[^/]+/.test(location.pathname);
