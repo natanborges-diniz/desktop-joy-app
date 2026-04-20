@@ -51,7 +51,7 @@ export default function Perfil() {
           </Button>
 
           <p className="text-center text-[11px] text-muted-foreground">
-            Atrium Messenger · v0.1
+            Infoco Messenger · v0.1
           </p>
         </div>
       </div>

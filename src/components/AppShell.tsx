@@ -43,7 +43,7 @@ export default function AppShell() {
             <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-semibold leading-tight">Atrium</p>
+            <p className="text-sm font-semibold leading-tight">Infoco</p>
             <p className="text-[11px] leading-tight text-white/80">Messenger</p>
           </div>
         </div>

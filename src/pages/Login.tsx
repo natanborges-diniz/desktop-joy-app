@@ -43,8 +43,8 @@ export default function Login() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
             <MessageCircle className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Atrium Messenger</h1>
-          <p className="mt-1 text-sm text-white/80">Comunicação interna do Grupo Atrium</p>
+          <h1 className="text-3xl font-bold tracking-tight">Infoco Messenger</h1>
+          <p className="mt-1 text-sm text-white/80">Comunicação interna do Grupo Infoco</p>
         </header>
 
         <Card className="p-6 shadow-floating">
@@ -56,7 +56,7 @@ export default function Login() {
                 type="email"
                 autoComplete="email"
                 required
-                placeholder="seu.nome@grupoatrium.com"
+                placeholder="seu.nome@infocooptical.com.br"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -80,7 +80,7 @@ export default function Login() {
         </Card>
 
         <p className="mt-6 text-center text-xs text-white/70">
-          Use a mesma conta do portal Atrium Link
+          Use a mesma conta do portal Infoco Connect
         </p>
       </div>
     </main>

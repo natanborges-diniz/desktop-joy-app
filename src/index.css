@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Atrium Messenger — Light Corporate (estilo WhatsApp Business)
+/* Infoco Messenger — Light Corporate (estilo WhatsApp Business)
    Todas as cores em HSL. Tokens semânticos consumidos por tailwind.config.ts. */
 
 @layer base {
