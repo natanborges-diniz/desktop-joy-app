@@ -36,7 +36,7 @@ export default function ConversaDetail() {
       const [{ data: msgs }, { data: prof }] = await Promise.all([
         supabase
           .from("mensagens_internas")
-          .select("id,remetente_id,destinatario_id,conteudo,lida,created_at")
+          .select("id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at")
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
           )
@@ -98,9 +98,13 @@ export default function ConversaDetail() {
     e.preventDefault();
     const conteudo = text.trim();
     if (!conteudo || !user || !otherId) return;
+
+    const conversaId = messages.at(-1)?.conversa_id ?? crypto.randomUUID();
+
     setSending(true);
     const optimistic: MensagemInterna = {
       id: `tmp-${crypto.randomUUID()}`,
+      conversa_id: conversaId,
       remetente_id: user.id,
       destinatario_id: otherId,
       conteudo,
@@ -109,22 +113,27 @@ export default function ConversaDetail() {
     };
     setMessages((prev) => [...prev, optimistic]);
     setText("");
+
     const { data, error } = await supabase
       .from("mensagens_internas")
       .insert({
+        conversa_id: conversaId,
         remetente_id: user.id,
         destinatario_id: otherId,
         conteudo,
       })
-      .select()
+      .select("id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at")
       .single();
+
     setSending(false);
+
     if (error) {
       toast.error("Não foi possível enviar a mensagem");
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setText(conteudo);
       return;
     }
+
     setMessages((prev) =>
       prev.map((m) => (m.id === optimistic.id ? (data as MensagemInterna) : m)),
     );
