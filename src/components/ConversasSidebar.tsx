@@ -45,7 +45,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       setLoading(true);
       const { data, error } = await supabase
         .from("mensagens_internas")
-        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at")
+        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo")
         .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(500);
@@ -246,7 +246,12 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                           )}
                         >
                           {c.lastMessage.remetente_id === user?.id ? "Você: " : ""}
-                          {c.lastMessage.conteudo}
+                          {c.lastMessage.conteudo
+                            || (c.lastMessage.anexo_tipo?.startsWith("image/")
+                              ? "📷 Foto"
+                              : c.lastMessage.anexo_url
+                                ? "📎 Anexo"
+                                : "")}
                         </p>
                         {c.unread > 0 && (
                           <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
