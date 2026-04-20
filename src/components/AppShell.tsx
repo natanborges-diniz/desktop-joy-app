@@ -3,6 +3,7 @@ import { Bell, ClipboardList, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
+import { useAppBadge } from "@/hooks/useAppBadge";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 
 const items = [
@@ -34,6 +35,7 @@ export default function AppShell() {
   const location = useLocation();
   const unread = useUnreadCount();
   useDocumentTitleBadge(unread);
+  useAppBadge(unread);
 
   const isHome = location.pathname === "/";
   const isConversaRoute = isHome || /^\/conversas\/[^/]+/.test(location.pathname);
