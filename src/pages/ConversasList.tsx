@@ -24,8 +24,7 @@ export default function ConversasList() {
   const [messages, setMessages] = useState<MensagemInterna[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
+  const [novaOpen, setNovaOpen] = useState(false);
     if (!user) return;
     let active = true;
 
