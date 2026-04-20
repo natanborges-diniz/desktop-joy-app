@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { makeConversaId } from "@/lib/conversa";
 
 function formatDayLabel(d: Date) {
   if (isToday(d)) return "Hoje";
@@ -99,7 +100,7 @@ export default function ConversaDetail() {
     const conteudo = text.trim();
     if (!conteudo || !user || !otherId) return;
 
-    const conversaId = messages.at(-1)?.conversa_id ?? crypto.randomUUID();
+    const conversaId = makeConversaId(user.id, otherId);
 
     setSending(true);
     const optimistic: MensagemInterna = {
