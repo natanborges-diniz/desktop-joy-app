@@ -177,14 +177,24 @@ export default function ConversaDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <UserAvatar nome={other?.nome} email={other?.email} url={other?.avatar_url} size="sm" />
+        <UserAvatar
+          nome={other?.nome}
+          email={other?.email}
+          url={other?.avatar_url}
+          size="sm"
+          online={isOtherOnline}
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold leading-tight">
             {other?.nome || other?.email || "Conversa"}
           </p>
-          {other?.cargo && (
-            <p className="truncate text-[11px] leading-tight text-white/75">{other.cargo}</p>
-          )}
+          <p className="truncate text-[11px] leading-tight text-white/75">
+            {otherTyping
+              ? "digitando…"
+              : isOtherOnline
+                ? "online"
+                : other?.cargo || ""}
+          </p>
         </div>
         <Button
           variant="ghost"
