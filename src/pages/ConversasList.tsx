@@ -25,6 +25,8 @@ export default function ConversasList() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [search, setSearch] = useState("");
   const [novaOpen, setNovaOpen] = useState(false);
+
+  useEffect(() => {
     if (!user) return;
     let active = true;
 
