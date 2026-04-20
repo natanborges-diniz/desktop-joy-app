@@ -1,9 +1,19 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "@/auth/auth-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { LogOut, Mail, Briefcase } from "lucide-react";
+import { Bell, BellOff, LogOut, Mail, Briefcase, Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import {
+  isPushSupported,
+  isSubscribed,
+  subscribePush,
+  unsubscribePush,
+  getPermission,
+  iosNeedsInstall,
+} from "@/lib/push";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Perfil() {
   const { profile, user, signOut } = useAuth();
@@ -45,6 +55,8 @@ export default function Perfil() {
             )}
           </Card>
 
+          <NotificacoesCard />
+
           <Button variant="outline" className="w-full" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
             Sair da conta
@@ -68,5 +80,145 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
         <p className="truncate text-sm text-foreground">{value}</p>
       </div>
     </div>
+  );
+}
+
+function NotificacoesCard() {
+  const [supported, setSupported] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [subscribed, setSubscribed] = useState(false);
+  const [needsInstall, setNeedsInstall] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  async function refresh() {
+    const sup = isPushSupported();
+    setSupported(sup);
+    setNeedsInstall(iosNeedsInstall());
+    if (!sup) return;
+    setPermission(getPermission());
+    setSubscribed(await isSubscribed());
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  async function handleEnable() {
+    setLoading(true);
+    const result = await subscribePush();
+    setLoading(false);
+    if (result.ok) {
+      toast.success("Notificações ativadas neste dispositivo");
+      await refresh();
+    } else {
+      const map: Record<string, string> = {
+        unsupported: "Seu navegador não suporta notificações push",
+        "no-vapid-key": "Configuração de push ausente — contate o admin",
+        denied: "Permissão negada. Ative nas configurações do navegador.",
+        "no-sw": "Service Worker não está ativo. Tente recarregar a página.",
+        "no-keys": "Falha ao gerar chaves de assinatura",
+        "no-user": "Você precisa estar logado",
+      };
+      toast.error(map[result.reason ?? ""] ?? `Falha ao ativar (${result.reason})`);
+    }
+  }
+
+  async function handleDisable() {
+    setLoading(true);
+    await unsubscribePush();
+    setLoading(false);
+    toast.success("Notificações desativadas neste dispositivo");
+    await refresh();
+  }
+
+  async function handleTest() {
+    setTesting(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-test-push");
+      if (error) throw error;
+      toast.success("Notificação de teste enviada — confira em alguns segundos");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "erro desconhecido";
+      toast.error(`Falha no teste: ${msg}`);
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <Card className="space-y-3 p-4 shadow-soft">
+      <div className="flex items-center gap-2">
+        <Bell className="h-4 w-4 text-primary" />
+        <h2 className="text-sm font-semibold text-foreground">Notificações push</h2>
+      </div>
+
+      {!supported && (
+        <p className="text-sm text-muted-foreground">
+          Seu navegador não suporta notificações push. Tente em um Chrome/Edge atualizado ou
+          instale o app no celular.
+        </p>
+      )}
+
+      {supported && needsInstall && (
+        <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3 text-sm">
+          <div className="flex items-center gap-2 font-medium text-foreground">
+            <Smartphone className="h-4 w-4" />
+            Instale o app primeiro
+          </div>
+          <p className="text-muted-foreground">
+            No iPhone, abra esta página no <strong>Safari</strong>, toque no botão Compartilhar
+            e selecione <strong>"Adicionar à Tela de Início"</strong>. Depois abra o app
+            instalado e volte aqui para ativar as notificações.
+          </p>
+        </div>
+      )}
+
+      {supported && !needsInstall && permission === "denied" && (
+        <p className="text-sm text-muted-foreground">
+          Você bloqueou as notificações. Para reativar, libere nas configurações do
+          navegador/sistema e recarregue a página.
+        </p>
+      )}
+
+      {supported && !needsInstall && permission !== "denied" && (
+        <>
+          {subscribed ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                ✅ Notificações ativas neste dispositivo. Você receberá avisos mesmo com o app
+                fechado.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={handleTest} disabled={testing}>
+                  {testing ? "Enviando…" : "Enviar teste"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleDisable}
+                  disabled={loading}
+                  className="text-muted-foreground"
+                >
+                  <BellOff className="h-3.5 w-3.5" />
+                  Desativar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Receba avisos de novas mensagens, demandas e notificações mesmo com o app
+                fechado.
+              </p>
+              <Button onClick={handleEnable} disabled={loading} className="w-full">
+                <Bell className="h-4 w-4" />
+                {loading ? "Ativando…" : "Ativar notificações"}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
   );
 }
