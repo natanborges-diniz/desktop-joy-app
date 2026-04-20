@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, MessageSquare, Plus, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
+import { usePresence } from "@/hooks/usePresence";
 
 type Conversation = {
   otherId: string;
@@ -34,6 +35,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todas" | "nao_lidas">("todas");
   const [novaOpen, setNovaOpen] = useState(false);
+  const onlineIds = usePresence();
 
   useEffect(() => {
     if (!user) return;
@@ -220,6 +222,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                       nome={c.profile?.nome}
                       email={c.profile?.email}
                       url={c.profile?.avatar_url}
+                      online={onlineIds.has(c.otherId)}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
