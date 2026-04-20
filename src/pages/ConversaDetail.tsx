@@ -11,6 +11,8 @@ import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
+import { usePresence } from "@/hooks/usePresence";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 function formatDayLabel(d: Date) {
   if (isToday(d)) return "Hoje";
@@ -28,6 +30,9 @@ export default function ConversaDetail() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const onlineIds = usePresence();
+  const isOtherOnline = otherId ? onlineIds.has(otherId) : false;
+  const { otherTyping, sendTyping } = useTypingIndicator(user?.id, otherId);
 
   useEffect(() => {
     if (!user || !otherId) return;
