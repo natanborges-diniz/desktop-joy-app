@@ -252,6 +252,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                               : c.lastMessage.anexo_url
                                 ? "📎 Anexo"
                                 : "")}
+                        </p>
                         {c.unread > 0 && (
                           <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
                             {c.unread}
