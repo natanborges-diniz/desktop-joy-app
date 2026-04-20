@@ -27,6 +27,7 @@ export type Profile = {
 
 export type MensagemInterna = {
   id: string;
+  conversa_id?: string | null;
   remetente_id: string;
   destinatario_id: string;
   conteudo: string;
