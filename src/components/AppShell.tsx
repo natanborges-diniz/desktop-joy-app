@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Bell, ClipboardList, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { ConversasSidebar } from "@/components/ConversasSidebar";
 
 const items = [
   { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" as const },
@@ -9,15 +10,6 @@ const items = [
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null },
 ];
-
-function Badge({ count }: { count: number }) {
-  if (!count) return null;
-  return (
-    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground">
-      {count > 99 ? "99+" : count}
-    </span>
-  );
-}
 
 function MobileBadge({ count }: { count: number }) {
   if (!count) return null;
@@ -28,52 +20,78 @@ function MobileBadge({ count }: { count: number }) {
   );
 }
 
+function RailBadge({ count }: { count: number }) {
+  if (!count) return null;
+  return (
+    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground ring-2 ring-sidebar">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 export default function AppShell() {
   const location = useLocation();
   const unread = useUnreadCount();
+
+  const isHome = location.pathname === "/";
+  const isConversaRoute = isHome || /^\/conversas\/[^/]+/.test(location.pathname);
   // No mobile, esconder bottom nav quando dentro de uma conversa específica
   const hideBottomNav = /^\/conversas\/[^/]+/.test(location.pathname);
 
   return (
     <div className="flex h-[100dvh] w-full bg-background">
-      {/* Sidebar — desktop */}
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-sidebar md:flex md:flex-col">
-        <div className="flex h-16 items-center gap-3 border-b border-sidebar-border bg-gradient-header px-5 text-header-foreground">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15">
-            <MessageSquare className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold leading-tight">Infoco</p>
-            <p className="text-[11px] leading-tight text-white/80">Messenger</p>
-          </div>
+      {/* Rail estreito de ícones — desktop */}
+      <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar py-3 md:flex">
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-header text-header-foreground shadow-soft">
+          <MessageSquare className="h-5 w-5" />
         </div>
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex flex-1 flex-col items-center gap-1.5">
           {items.map(({ to, label, icon: Icon, exact, badge }) => (
             <NavLink
               key={to}
               to={to}
               end={exact}
+              title={label}
+              aria-label={label}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                    ? "bg-sidebar-accent text-primary"
+                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                 )
               }
             >
               <Icon className="h-5 w-5" />
-              <span>{label}</span>
-              {badge === "messages" && <Badge count={unread} />}
+              {badge === "messages" && <RailBadge count={unread} />}
             </NavLink>
           ))}
         </nav>
       </aside>
 
+      {/* Sidebar de conversas — desktop, sempre visível em rotas de conversa */}
+      {isConversaRoute && (
+        <aside className="hidden w-80 shrink-0 border-r border-border md:flex md:flex-col lg:w-96">
+          <ConversasSidebar embedded />
+        </aside>
+      )}
+
       {/* Conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="min-h-0 flex-1 overflow-hidden">
-          <Outlet />
+          {/* Em "/" no desktop, mostra placeholder; no mobile a Outlet renderiza a lista */}
+          {isHome ? (
+            <>
+              <div className="hidden h-full md:block">
+                <ChatPlaceholder />
+              </div>
+              <div className="h-full md:hidden">
+                <Outlet />
+              </div>
+            </>
+          ) : (
+            <Outlet />
+          )}
         </main>
 
         {/* Bottom nav — mobile */}
@@ -103,6 +121,20 @@ export default function AppShell() {
           </nav>
         )}
       </div>
+    </div>
+  );
+}
+
+function ChatPlaceholder() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-surface-muted px-6 text-center">
+      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-header text-header-foreground shadow-elevated">
+        <MessageSquare className="h-9 w-9" />
+      </div>
+      <h2 className="text-lg font-semibold text-foreground">Selecione uma conversa</h2>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        Escolha um contato à esquerda para começar a trocar mensagens.
+      </p>
     </div>
   );
 }
