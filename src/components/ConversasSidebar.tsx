@@ -32,6 +32,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   const [messages, setMessages] = useState<MensagemInterna[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"todas" | "nao_lidas">("todas");
   const [novaOpen, setNovaOpen] = useState(false);
 
   useEffect(() => {
@@ -108,6 +109,9 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       }
     }
     let list = Array.from(map.values());
+    if (filter === "nao_lidas") {
+      list = list.filter((c) => c.unread > 0);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -121,7 +125,16 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       (a, b) =>
         new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime(),
     );
-  }, [messages, profiles, user, search]);
+  }, [messages, profiles, user, search, filter]);
+
+  const totalUnread = useMemo(
+    () =>
+      messages.reduce(
+        (acc, m) => (m.destinatario_id === user?.id && !m.lida ? acc + 1 : acc),
+        0,
+      ),
+    [messages, user],
+  );
 
   return (
     <div className="flex h-full flex-col bg-surface">
