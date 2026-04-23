@@ -329,7 +329,7 @@ export default function ConversaDetail() {
                     <div key={m.id} className={cn("flex animate-slide-up", mine ? "justify-end" : "justify-start")}>
                       <div
                         className={cn(
-                          "max-w-[78%] overflow-hidden px-3 py-2 text-sm shadow-soft md:max-w-[60%]",
+                          "max-w-[70%] overflow-hidden px-3 py-2 text-sm shadow-soft md:max-w-[55%]",
                           mine ? "bubble-out" : "bubble-in",
                         )}
                       >
