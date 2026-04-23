@@ -12,6 +12,7 @@ import {
   unsubscribePush,
   getPermission,
   iosNeedsInstall,
+  getPushDiagnostics,
 } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -90,11 +91,14 @@ function NotificacoesCard() {
   const [needsInstall, setNeedsInstall] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [showDiag, setShowDiag] = useState(false);
+  const [diag, setDiag] = useState<ReturnType<typeof getPushDiagnostics> | null>(null);
 
   async function refresh() {
     const sup = isPushSupported();
     setSupported(sup);
     setNeedsInstall(iosNeedsInstall());
+    setDiag(getPushDiagnostics());
     if (!sup) return;
     setPermission(getPermission());
     setSubscribed(await isSubscribed());
@@ -159,6 +163,21 @@ function NotificacoesCard() {
           instale o app no celular.
         </p>
       )}
+
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={() => setShowDiag((v) => !v)}
+          className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {showDiag ? "Ocultar diagnóstico" : "Mostrar diagnóstico"}
+        </button>
+        {showDiag && diag && (
+          <pre className="mt-2 max-h-48 overflow-auto rounded-md border border-border bg-surface-muted p-2 text-[10px] leading-snug text-muted-foreground">
+{JSON.stringify(diag, null, 2)}
+          </pre>
+        )}
+      </div>
 
       {supported && needsInstall && (
         <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3 text-sm">
