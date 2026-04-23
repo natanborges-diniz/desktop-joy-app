@@ -164,6 +164,21 @@ function NotificacoesCard() {
         </p>
       )}
 
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={() => setShowDiag((v) => !v)}
+          className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {showDiag ? "Ocultar diagnóstico" : "Mostrar diagnóstico"}
+        </button>
+        {showDiag && diag && (
+          <pre className="mt-2 max-h-48 overflow-auto rounded-md border border-border bg-surface-muted p-2 text-[10px] leading-snug text-muted-foreground">
+{JSON.stringify(diag, null, 2)}
+          </pre>
+        )}
+      </div>
+
       {supported && needsInstall && (
         <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3 text-sm">
           <div className="flex items-center gap-2 font-medium text-foreground">
