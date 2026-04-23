@@ -91,11 +91,14 @@ function NotificacoesCard() {
   const [needsInstall, setNeedsInstall] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [showDiag, setShowDiag] = useState(false);
+  const [diag, setDiag] = useState<ReturnType<typeof getPushDiagnostics> | null>(null);
 
   async function refresh() {
     const sup = isPushSupported();
     setSupported(sup);
     setNeedsInstall(iosNeedsInstall());
+    setDiag(getPushDiagnostics());
     if (!sup) return;
     setPermission(getPermission());
     setSubscribed(await isSubscribed());
