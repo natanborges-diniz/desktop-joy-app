@@ -1,33 +1,31 @@
 
 
-## Plano: configurar Web Push no Cloud do "Lovable Connect & Flow"
+## Trocar ícone e nome do app para "DiniZap"
 
-### Contexto descoberto
+### Ícone (usando `DiniZap2.jpeg`)
 
-- **Infoco Messenger** (este projeto) → o Cloud novo (`xkyiciqlqpixmyrbzupg`) está vazio e não é usado. O app aponta pra `kvggebtnqmxydtwaumqz`.
-- **Lovable Connect & Flow** (`2a6a2d63-...`) → seu Cloud É `kvggebtnqmxydtwaumqz`. Ele é o backend real deste app.
-- Conclusão: pra criar tabela `push_subscriptions` e a edge function `send-test-push`, é só rodar no chat do **Lovable Connect & Flow**. Sem painel externo, sem copy-paste.
+- Copiar `user-uploads://DiniZap2.jpeg` para:
+  - `public/favicon.png`
+  - `public/icon-192.png`
+  - `public/icon-512.png`
+  - `public/icon-maskable-512.png`
+- Apagar `public/favicon.ico` (senão o navegador prioriza o antigo).
+- Em `index.html`, adicionar `<link rel="icon" href="/favicon.png" type="image/png">` e trocar `apple-mobile-web-app-title` de `"Infoco"` para `"DiniZap"`.
 
-### O que eu vou te entregar agora
+### Nome do app
 
-Um **prompt curto e direto** pra você colar no chat do Lovable Connect & Flow. Quando você aprovar este plano, mudo pra modo default e gero o prompt em formato copiável.
+- **`index.html`**: `<title>` e meta `og:title` / `twitter:title` → `"DiniZap — Comunicação interna"`. Atualizar `description`/`og:description` removendo "Infoco Messenger".
+- **`public/manifest.webmanifest`**:
+  - `name`: `"DiniZap"`
+  - `short_name`: `"DiniZap"`
+  - `description`: atualizar removendo "Grupo Infoco"
+  - `theme_color` e `background_color`: vermelho do logo (`#D62828`)
+- **`src/hooks/useDocumentTitleBadge.ts`**: trocar default `baseTitle` de `"Atrium Messenger"` para `"DiniZap"`.
+- **Buscar e substituir** outras ocorrências visíveis de "Infoco" / "Infoco Messenger" na UI (ex.: `AppShell`, `Login`, `Perfil`) para "DiniZap". Não tocar em nomes de tabelas, projetos Cloud ou comentários técnicos — só strings exibidas ao usuário.
 
-### O prompt vai pedir ao Lovable do outro projeto:
+### Observações
 
-1. Criar tabela `public.push_subscriptions` com RLS (cada user só vê as próprias) — schema idêntico ao `supabase-setup/01_push_subscriptions.sql`.
-2. Adicionar 3 secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (com valores prontos).
-3. Criar edge function `send-test-push` com o código de `supabase-setup/02_send-test-push.ts`.
-4. Confirmar deploy e me avisar pra você voltar aqui.
-
-### Aqui no Infoco Messenger
-
-Nada muda no código. Os arquivos em `supabase-setup/` viram referência interna (não precisam mais ser executados manualmente). Posso opcionalmente atualizar `supabase-setup/README.md` pra deixar claro que o setup foi feito via chat do outro projeto.
-
-### Depois que rodar lá
-
-Você publica este app aqui (**Publish → Update**), abre no celular, vai em **Perfil → Ativar notificações → Enviar teste**. Funciona.
-
-### Próximo passo (Entrega 2)
-
-Triggers automáticos (nova mensagem / demanda / aviso) também serão pedidos via prompt no Lovable Connect & Flow — pelo mesmo motivo: é lá que vivem as tabelas `mensagens_internas`, `demandas`, etc.
+- iPhone com app já instalado na home **não atualiza ícone nem nome** automaticamente: precisa remover da tela de início e reinstalar (Compartilhar → Adicionar à Tela de Início).
+- No navegador desktop, pode ser necessário hard-refresh (Cmd/Ctrl+Shift+R) pra ver o favicon novo.
+- Não vou renomear o repositório nem URLs de publicação (`desktop-joy-app.lovable.app`) — isso é feito em Settings, fora do código.
 
