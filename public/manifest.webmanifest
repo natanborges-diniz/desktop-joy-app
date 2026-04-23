@@ -1,7 +1,7 @@
 {
-  "name": "DiniZap",
-  "short_name": "DiniZap",
-  "description": "Comunicação interna, demandas e notificações.",
+  "name": "InFoco Message",
+  "short_name": "InFoco",
+  "description": "InFoco Message: comunicação interna, demandas e notificações.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

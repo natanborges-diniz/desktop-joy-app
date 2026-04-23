@@ -39,7 +39,7 @@ self.addEventListener("push", (event: PushEvent) => {
     payload = { body: event.data?.text() ?? "" };
   }
 
-  const title = payload.title || "DiniZap";
+  const title = payload.title || "InFoco Message";
   const options: NotificationOptions = {
     body: payload.body || "",
     icon: payload.icon || "/icon-192.png",

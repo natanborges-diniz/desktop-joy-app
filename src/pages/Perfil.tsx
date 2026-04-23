@@ -64,7 +64,7 @@ export default function Perfil() {
           </Button>
 
           <p className="text-center text-[11px] text-muted-foreground">
-            DiniZap · v0.1
+            InFoco Message · v0.1
           </p>
         </div>
       </div>
