@@ -50,7 +50,33 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null;
+  // Aguarda o SW ficar pronto (importante no primeiro load do PWA no iOS).
+  try {
+    const ready = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+    ]);
+    if (ready) return ready as ServiceWorkerRegistration;
+  } catch {
+    // ignora e tenta o fallback abaixo
+  }
   return (await navigator.serviceWorker.getRegistration()) ?? null;
+}
+
+/** Diagnóstico detalhado para mostrar ao usuário quando algo não funciona. */
+export function getPushDiagnostics() {
+  const hasSW = typeof navigator !== "undefined" && "serviceWorker" in navigator;
+  const hasPush = typeof window !== "undefined" && "PushManager" in window;
+  const hasNotif = typeof window !== "undefined" && "Notification" in window;
+  return {
+    serviceWorker: hasSW,
+    pushManager: hasPush,
+    notification: hasNotif,
+    standalone: isStandalone(),
+    ios: isIOS(),
+    permission: hasNotif ? Notification.permission : "unsupported",
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+  };
 }
 
 /** Já existe assinatura ativa neste navegador? */
