@@ -1,13 +1,13 @@
 {
-  "name": "Infoco Messenger",
-  "short_name": "Infoco",
-  "description": "Comunicação interna, demandas e notificações do Grupo Infoco.",
+  "name": "DiniZap",
+  "short_name": "DiniZap",
+  "description": "Comunicação interna, demandas e notificações.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f7f8fb",
-  "theme_color": "#0e0f12",
+  "background_color": "#D62828",
+  "theme_color": "#D62828",
   "categories": ["business", "productivity", "social"],
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
