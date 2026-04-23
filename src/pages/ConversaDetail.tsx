@@ -258,44 +258,46 @@ export default function ConversaDetail() {
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
-      <header className="flex items-center gap-3 bg-gradient-header px-3 py-2.5 pt-safe text-header-foreground shadow-elevated">
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="text-header-foreground hover:bg-white/10 md:hidden"
-        >
-          <Link to="/" aria-label="Voltar">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        <UserAvatar
-          nome={other?.nome}
-          email={other?.email}
-          url={other?.avatar_url}
-          size="sm"
-          online={isOtherOnline}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold leading-tight">
-            {other?.nome || other?.email || "Conversa"}
-          </p>
-          <p className="truncate text-[11px] leading-tight text-white/75">
-            {otherTyping
-              ? "digitando…"
-              : isOtherOnline
-                ? "online"
-                : other?.cargo || ""}
-          </p>
+      <header className="bg-gradient-header pt-safe text-header-foreground shadow-elevated">
+        <div className="flex items-center gap-2 px-2 py-2">
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full bg-white/20 text-header-foreground hover:bg-white/30 active:bg-white/40 md:hidden"
+          >
+            <Link to="/" aria-label="Voltar">
+              <ArrowLeft className="h-6 w-6" strokeWidth={2.5} />
+            </Link>
+          </Button>
+          <UserAvatar
+            nome={other?.nome}
+            email={other?.email}
+            url={other?.avatar_url}
+            size="sm"
+            online={isOtherOnline}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold leading-tight">
+              {other?.nome || other?.email || "Conversa"}
+            </p>
+            <p className="truncate text-[11px] leading-tight text-white/75">
+              {otherTyping
+                ? "digitando…"
+                : isOtherOnline
+                  ? "online"
+                  : other?.cargo || ""}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden text-header-foreground hover:bg-white/10 md:inline-flex"
+            onClick={() => navigate("/")}
+          >
+            Fechar
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="hidden text-header-foreground hover:bg-white/10 md:inline-flex"
-          onClick={() => navigate("/")}
-        >
-          Fechar
-        </Button>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin px-3 py-4 md:px-6">
