@@ -48,7 +48,7 @@ export default function AppShell() {
       <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar py-3 md:flex">
         <img
           src="/icon-192.png"
-          alt="Infoco"
+          alt="DiniZap"
           className="mb-3 h-10 w-10 rounded-xl shadow-soft"
           draggable={false}
         />
@@ -137,7 +137,7 @@ function ChatPlaceholder() {
     <div className="flex h-full flex-col items-center justify-center gap-3 bg-surface-muted px-6 text-center">
       <img
         src="/icon-512.png"
-        alt="Infoco"
+        alt="DiniZap"
         className="h-20 w-20 rounded-2xl shadow-elevated"
         draggable={false}
       />

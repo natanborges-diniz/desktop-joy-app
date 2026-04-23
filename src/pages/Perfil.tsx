@@ -64,7 +64,7 @@ export default function Perfil() {
           </Button>
 
           <p className="text-center text-[11px] text-muted-foreground">
-            Infoco Messenger · v0.1
+            DiniZap · v0.1
           </p>
         </div>
       </div>

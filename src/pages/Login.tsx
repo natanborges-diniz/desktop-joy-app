@@ -54,15 +54,15 @@ export default function Login() {
           <div className="mb-5 flex h-32 w-32 items-center justify-center rounded-3xl bg-white p-5 shadow-floating ring-1 ring-white/20">
             <img
               src={infocoLogo}
-              alt="Infoco Optical Business"
+              alt="DiniZap"
               width={1024}
               height={1024}
               className="h-full w-full select-none object-contain"
               draggable={false}
             />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Infoco Messenger</h1>
-          <p className="mt-1.5 text-sm text-white/70">Comunicação interna do Grupo Infoco</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">DiniZap</h1>
+          <p className="mt-1.5 text-sm text-white/70">Comunicação interna</p>
         </header>
 
         <Card className="p-6 shadow-floating">
@@ -98,7 +98,7 @@ export default function Login() {
         </Card>
 
         <p className="mt-6 text-center text-xs text-white/60">
-          Use a mesma conta do portal Infoco Connect
+          Use a sua conta corporativa
         </p>
       </div>
     </main>

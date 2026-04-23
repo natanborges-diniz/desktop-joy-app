@@ -293,7 +293,7 @@ function EmptyState({ onNova }: { onNova?: () => void }) {
       </div>
       <h2 className="text-base font-semibold text-foreground">Nenhuma conversa ainda</h2>
       <p className="max-w-xs text-sm text-muted-foreground">
-        Comece uma nova conversa com um colega do Grupo Infoco.
+        Comece uma nova conversa com um colega.
       </p>
       {onNova && (
         <Button onClick={onNova} className="mt-2 gap-2">
