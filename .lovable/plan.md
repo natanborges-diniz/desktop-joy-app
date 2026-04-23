@@ -1,31 +1,20 @@
 
+## Tornar a seta de voltar mais visível na tela de conversa
 
-## Trocar ícone e nome do app para "DiniZap"
+Hoje, no header da conversa (mobile), a seta `←` é desenhada com `h-5 w-5` em cima do gradiente vermelho, sem fundo nem traço mais forte — fica discreta e fácil de não notar (como aparece no seu print).
 
-### Ícone (usando `DiniZap2.jpeg`)
+### Mudanças (arquivo único: `src/pages/ConversaDetail.tsx`, linhas 262–271)
 
-- Copiar `user-uploads://DiniZap2.jpeg` para:
-  - `public/favicon.png`
-  - `public/icon-192.png`
-  - `public/icon-512.png`
-  - `public/icon-maskable-512.png`
-- Apagar `public/favicon.ico` (senão o navegador prioriza o antigo).
-- Em `index.html`, adicionar `<link rel="icon" href="/favicon.png" type="image/png">` e trocar `apple-mobile-web-app-title` de `"Infoco"` para `"DiniZap"`.
+Ajustar o botão de voltar para:
 
-### Nome do app
+- **Ícone maior e mais grosso**: `ArrowLeft` passa de `h-5 w-5` → `h-6 w-6` com `strokeWidth={2.5}`.
+- **Fundo translúcido permanente** (não só no hover): `bg-white/15` + `hover:bg-white/30` + `active:bg-white/40` — cria um "círculo" claro contra o vermelho.
+- **Área de toque maior**: `h-10 w-10` (em vez do `size="icon"` padrão de 9×9), respeitando os 44px recomendados pra touch em iOS.
+- **Margem à esquerda**: `-ml-1` pra colar bem no canto sem encostar na borda.
 
-- **`index.html`**: `<title>` e meta `og:title` / `twitter:title` → `"DiniZap — Comunicação interna"`. Atualizar `description`/`og:description` removendo "Infoco Messenger".
-- **`public/manifest.webmanifest`**:
-  - `name`: `"DiniZap"`
-  - `short_name`: `"DiniZap"`
-  - `description`: atualizar removendo "Grupo Infoco"
-  - `theme_color` e `background_color`: vermelho do logo (`#D62828`)
-- **`src/hooks/useDocumentTitleBadge.ts`**: trocar default `baseTitle` de `"Atrium Messenger"` para `"DiniZap"`.
-- **Buscar e substituir** outras ocorrências visíveis de "Infoco" / "Infoco Messenger" na UI (ex.: `AppShell`, `Login`, `Perfil`) para "DiniZap". Não tocar em nomes de tabelas, projetos Cloud ou comentários técnicos — só strings exibidas ao usuário.
+Sem mudar a lógica de navegação (continua `Link to="/"`), sem mexer no desktop (segue `md:hidden`), sem alterar nenhum outro componente.
 
-### Observações
+### Resultado visual
 
-- iPhone com app já instalado na home **não atualiza ícone nem nome** automaticamente: precisa remover da tela de início e reinstalar (Compartilhar → Adicionar à Tela de Início).
-- No navegador desktop, pode ser necessário hard-refresh (Cmd/Ctrl+Shift+R) pra ver o favicon novo.
-- Não vou renomear o repositório nem URLs de publicação (`desktop-joy-app.lovable.app`) — isso é feito em Settings, fora do código.
-
+Antes: seta fina solta no vermelho.
+Depois: seta grossa dentro de um botão circular branco-translúcido bem destacado no canto esquerdo.
