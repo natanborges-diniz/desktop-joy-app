@@ -12,6 +12,7 @@ import {
   unsubscribePush,
   getPermission,
   iosNeedsInstall,
+  getPushDiagnostics,
 } from "@/lib/push";
 import { supabase } from "@/integrations/supabase/client";
 
