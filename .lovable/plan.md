@@ -1,47 +1,42 @@
-## Destacar a seta de voltar no header da conversa (mobile)
+## Reverter ícone e renomear para "InFoco Message"
 
-No print, a seta `←` está sumindo atrás do **relógio do iOS** (status bar do sistema). O header tem `pt-safe`, mas o conteúdo (seta + avatar + nome) é renderizado todo na mesma linha, então a seta no canto esquerdo cai exatamente embaixo do horário.
+Para o ícone anterior, recomendo usar o botão **Revert** na mensagem do chat onde o ícone foi trocado (era o jeito mais seguro de recuperar o arquivo original do `DiniZap2.jpeg`). Como alternativa, se você reenviar o ícone antigo aqui, eu copio para `public/`.
 
-Vou resolver com duas mudanças no `src/pages/ConversaDetail.tsx` (linhas 261–299):
-
-### 1. Separar a faixa do safe-area do conteúdo do header
-
-Hoje:
-```tsx
-<header className="... px-3 py-2.5 pt-safe ...">
-  <Button>←</Button>
-  <UserAvatar/>
-  ...
-</header>
+```xml
+<lov-actions>
+  <lov-open-history>Ver histórico</lov-open-history>
+</lov-actions>
 ```
 
-Vai virar:
-```tsx
-<header className="... pt-safe ...">           // só reserva o espaço do notch/status bar
-  <div className="flex items-center gap-2 px-2 py-2">  // conteúdo real do header, abaixo do status bar
-    <Button>←</Button>
-    <UserAvatar/>
-    ...
-  </div>
-</header>
-```
+### Renomear "DiniZap" → "InFoco Message"
 
-Assim o relógio do iOS fica na faixa reservada pelo `pt-safe` e a seta começa **abaixo** dele, totalmente visível.
+Strings visíveis ao usuário a serem atualizadas:
 
-### 2. Deixar a seta mais destacada
+- **`index.html`**
+  - `<title>`: `InFoco Message — Comunicação interna`
+  - `apple-mobile-web-app-title`: `InFoco Message`
+  - `meta description`, `og:title`, `twitter:title`, `og:description`, `twitter:description`: trocar `DiniZap` por `InFoco Message`
+  - `meta author`: `InFoco Message`
 
-- Tamanho do botão: `h-11 w-11` (touch target confortável, ~44px iOS).
-- Fundo translúcido permanente: `bg-white/20` + `hover:bg-white/30` + `active:bg-white/40` — cria um círculo claro contra o vermelho.
-- Ícone maior e mais grosso: `ArrowLeft` em `h-6 w-6` com `strokeWidth={2.5}`.
-- Posicionamento: `gap-2` e `px-2` no wrapper interno pra colar bem no canto esquerdo sem encostar na borda.
+- **`public/manifest.webmanifest`**
+  - `name`: `InFoco Message`
+  - `short_name`: `InFoco` (limite recomendado de 12 caracteres para home screen)
+  - `description`: `InFoco Message: comunicação interna, demandas e notificações.`
 
-### Ajustes de espaço (responder ao "diminuir um pouco o campo de conversa")
+- **`src/hooks/useDocumentTitleBadge.ts`**: default `baseTitle` → `InFoco Message`
 
-- O wrapper interno usa `py-2` (em vez do `py-2.5` atual) — header fica ligeiramente mais compacto, sobrando 2–4px que somam à área de mensagens. A área da seta ganha respiro vertical ao mesmo tempo, porque agora não compete com a faixa do status bar.
-- Sem mexer em `flex-1` do bloco de mensagens, sem alterar layout do desktop (`md:`), sem tocar na lógica de navegação (`Link to="/"`) nem em outros componentes.
+- **`src/sw.ts`**: título padrão da notificação push → `InFoco Message`
 
-### Resultado esperado
+- **`src/pages/Login.tsx`**: nome exibido no header (`<h1>`) → `InFoco Message`
 
-- Faixa preta do iOS (relógio/bateria) fica sobre o vermelho, sem encobrir nada interativo.
-- Logo abaixo, a seta aparece dentro de um círculo branco translúcido bem destacado, fácil de tocar.
-- Restante do header (avatar + nome + status) intacto.
+- **`src/pages/Perfil.tsx`**, **`src/components/AppShell.tsx`**, **`src/components/ConversasSidebar.tsx`**: substituir ocorrências visíveis de `DiniZap` por `InFoco Message`.
+
+### Não muda
+
+- Cores do tema (`#D62828`) permanecem.
+- URL publicada (`desktop-joy-app.lovable.app`) e nome do projeto Lovable não são alterados pelo código.
+- iPhone/Android com app já instalado na home: precisa remover e reinstalar para ver o nome novo.
+
+### Pergunta
+
+Você quer que eu já avance com o rename agora e você reverte o ícone pelo histórico em paralelo? Ou prefere reenviar o ícone antigo para eu fazer tudo de uma vez?
