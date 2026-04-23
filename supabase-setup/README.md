@@ -1,52 +1,44 @@
-# Setup manual no Supabase atrium-link
+# Setup do Web Push — backend atrium-link
 
-O Lovable Cloud foi ativado num projeto novo, mas o app continua usando o **Supabase atrium-link** (`kvggebtnqmxydtwaumqz`) para preservar conversas, perfis, demandas. Por isso, os passos abaixo precisam ser feitos **manualmente** no painel desse projeto.
+> **Status: ✅ CONCLUÍDO via chat do Lovable Connect & Flow.**
+>
+> Os arquivos deste diretório (`01_push_subscriptions.sql` e `02_send-test-push.ts`)
+> ficam aqui apenas como **referência histórica** do que foi aplicado.
+> **Não rode mais nada manualmente no painel do Supabase.**
 
-## 1. Rodar a migration
+## Por que isso mora em outro projeto Lovable
 
-1. Abra https://supabase.com/dashboard/project/kvggebtnqmxydtwaumqz/sql/new
-2. Cole o conteúdo de [`01_push_subscriptions.sql`](./01_push_subscriptions.sql)
-3. Clique em **Run**
+Este app (Infoco Messenger) usa o Supabase `kvggebtnqmxydtwaumqz` (atrium-link)
+como backend. Esse mesmo Supabase é o **Lovable Cloud** do projeto
+**Lovable Connect & Flow** (`2a6a2d63-e981-4d12-ac70-37d22a777184`).
 
-Cria a tabela `push_subscriptions` com RLS — cada usuário só acessa suas próprias.
+Portanto, qualquer mudança de banco / edge function / secret desse Supabase
+é feita **pelo chat do Lovable Connect & Flow**, não por aqui e não pelo
+painel externo.
 
-## 2. Adicionar os secrets VAPID
+## O que já foi aplicado lá
 
-Em **Project Settings → Edge Functions → Secrets**, adicione:
+1. ✅ Tabela `public.push_subscriptions` com RLS por usuário
+   (schema = `01_push_subscriptions.sql`)
+2. ✅ Secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+3. ✅ Edge function `send-test-push` deployada
+   (código = `02_send-test-push.ts`)
 
-| Nome | Valor |
-|---|---|
-| `VAPID_PUBLIC_KEY` | `BGi2gNRP8_4mYwoFYbrLgRWsnxq7QM7Klhywz-FmPQYwP86sVzoqYoUGozT-8qjFrkPVAA8rfvmuVo020HyglYI` |
-| `VAPID_PRIVATE_KEY` | `qkcC4LWziEu4K-EbSE6wpXCZZOzzZZF-02IqFrJo9XM` |
-| `VAPID_SUBJECT` | `mailto:contato@infoco.com.br` *(troque pelo e-mail oficial)* |
+## Como testar (faça aqui no Infoco Messenger)
 
-⚠️ **A chave privada nunca pode vazar.** Não comite em repositório público.
-A pública já está hard-coded no `vite.config.ts` — é seguro, ela é pública por design.
+1. **Publish → Update** neste projeto
+2. Abra `https://desktop-joy-app.lovable.app` no celular
+   - **iPhone**: Safari → Compartilhar → "Adicionar à Tela de Início" → abra o app instalado
+   - **Android**: Chrome → menu → "Instalar app"
+3. Faça login → **Perfil** → **"Ativar notificações"** → permita
+4. **"Enviar teste"** → notificação chega em 1-3s
 
-## 3. Criar a edge function `send-test-push`
+## Próximas entregas (também via Lovable Connect & Flow)
 
-1. Em **Edge Functions → Create a new function**, nome: `send-test-push`
-2. Cole o conteúdo de [`02_send-test-push.ts`](./02_send-test-push.ts)
-3. **Deploy**
-
-A function valida a JWT do usuário, busca as assinaturas dele e envia uma notificação de teste.
-
-## 4. Publicar o app
-
-No Lovable, clique em **Publish → Update**.
-O Service Worker novo só ativa em produção (`https://desktop-joy-app.lovable.app`), nunca no editor.
-
-## 5. Testar no celular
-
-1. Abra `https://desktop-joy-app.lovable.app` no celular
-2. **iPhone**: Safari → Compartilhar → "Adicionar à Tela de Início" → abra o app instalado
-3. **Android**: Chrome → menu → "Instalar app"
-4. Faça login → vá em **Perfil** → toque em **"Ativar notificações"** → permita
-5. Toque em **"Enviar teste"** → notificação deve chegar em 1-3s
-
-## Próxima entrega
-
-Triggers automáticos para disparar push em:
+Triggers automáticos de push em:
 - Nova mensagem em conversa
 - Demanda atribuída
 - Novo aviso/notificação
+
+O prompt para isso será gerado aqui no chat do Infoco Messenger e colado
+no chat do Lovable Connect & Flow — mesmo fluxo da Entrega 1.
