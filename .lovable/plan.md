@@ -1,42 +1,22 @@
-## Reverter ícone e renomear para "InFoco Message"
+## Ajustes no chat (mobile) — `src/pages/ConversaDetail.tsx`
 
-Para o ícone anterior, recomendo usar o botão **Revert** na mensagem do chat onde o ícone foi trocado (era o jeito mais seguro de recuperar o arquivo original do `DiniZap2.jpeg`). Como alternativa, se você reenviar o ícone antigo aqui, eu copio para `public/`.
+### 1. Cabeçalho — evitar sobreposição com a status bar
+O `<header>` já usa `pt-safe` (padding-top do safe-area-inset), mas em alguns dispositivos isso é insuficiente / o navegador não expõe o inset (ex.: PWA standalone com notch). Vou reforçar o espaçamento superior:
 
-```xml
-<lov-actions>
-  <lov-open-history>Ver histórico</lov-open-history>
-</lov-actions>
-```
+- Adicionar um padding-top mínimo garantido além do `pt-safe`:
+  - Trocar `pt-safe` por `pt-[max(env(safe-area-inset-top),0.75rem)]` no `<header>` (linha 261), garantindo no mínimo 12px mesmo quando o inset = 0.
+- Aumentar levemente o padding vertical da linha do header de `py-2` para `py-2.5` (linha 262), dando mais respiro para o nome do contato e a seta de voltar.
 
-### Renomear "DiniZap" → "InFoco Message"
+Resultado: o nome "Natan Borges" e o botão de voltar ficam claramente abaixo da barra de status, sem sobreposição.
 
-Strings visíveis ao usuário a serem atualizadas:
+### 2. Largura máxima dos balões — confirmar 70% no mobile
+A classe atual já é `max-w-[70%] ... md:max-w-[55%]` (linha 332), o que corresponde ao pedido. **Nenhuma alteração necessária aqui** — o requisito de 70% no mobile já está atendido.
 
-- **`index.html`**
-  - `<title>`: `InFoco Message — Comunicação interna`
-  - `apple-mobile-web-app-title`: `InFoco Message`
-  - `meta description`, `og:title`, `twitter:title`, `og:description`, `twitter:description`: trocar `DiniZap` por `InFoco Message`
-  - `meta author`: `InFoco Message`
+### 3. Cores
+- **Não alterar** nenhuma cor. Paleta atual de azuis (`bg-gradient-header`, `bubble-out`, `bubble-in`) permanece intacta.
 
-- **`public/manifest.webmanifest`**
-  - `name`: `InFoco Message`
-  - `short_name`: `InFoco` (limite recomendado de 12 caracteres para home screen)
-  - `description`: `InFoco Message: comunicação interna, demandas e notificações.`
+### Arquivos alterados
+- `src/pages/ConversaDetail.tsx` — apenas as classes do `<header>` (linhas 261–262).
 
-- **`src/hooks/useDocumentTitleBadge.ts`**: default `baseTitle` → `InFoco Message`
-
-- **`src/sw.ts`**: título padrão da notificação push → `InFoco Message`
-
-- **`src/pages/Login.tsx`**: nome exibido no header (`<h1>`) → `InFoco Message`
-
-- **`src/pages/Perfil.tsx`**, **`src/components/AppShell.tsx`**, **`src/components/ConversasSidebar.tsx`**: substituir ocorrências visíveis de `DiniZap` por `InFoco Message`.
-
-### Não muda
-
-- Cores do tema (`#D62828`) permanecem.
-- URL publicada (`desktop-joy-app.lovable.app`) e nome do projeto Lovable não são alterados pelo código.
-- iPhone/Android com app já instalado na home: precisa remover e reinstalar para ver o nome novo.
-
-### Pergunta
-
-Você quer que eu já avance com o rename agora e você reverte o ícone pelo histórico em paralelo? Ou prefere reenviar o ícone antigo para eu fazer tudo de uma vez?
+### Observação ao usuário
+Em PWAs já instalados na tela inicial, pode ser necessário fechar e reabrir o app para o novo padding entrar em vigor.
