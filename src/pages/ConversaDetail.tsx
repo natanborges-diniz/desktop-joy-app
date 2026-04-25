@@ -258,8 +258,8 @@ export default function ConversaDetail() {
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
-      <header className="bg-gradient-header pt-safe text-header-foreground shadow-elevated">
-        <div className="flex items-center gap-2 px-2 py-2">
+      <header className="bg-gradient-header pt-[max(env(safe-area-inset-top),0.75rem)] text-header-foreground shadow-elevated">
+        <div className="flex items-center gap-2 px-2 py-2.5">
           <Button
             asChild
             variant="ghost"
