@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import infocoLogo from "@/assets/infoco-logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const { session, signIn, loading: authLoading } = useAuth();
@@ -16,6 +17,34 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Magic link handler: aceita ?magic_token=...&email=... vindo do Lovable Connect & Flow
+  useEffect(() => {
+    const token = searchParams.get("magic_token");
+    const emailParam = searchParams.get("email");
+    if (!token || !emailParam) return;
+
+    (async () => {
+      setSubmitting(true);
+      const { error } = await supabase.auth.verifyOtp({
+        email: emailParam,
+        token,
+        type: "magiclink",
+      });
+      if (error) {
+        toast.error("Link de acesso inválido ou expirado");
+        console.error("[magic-link] verifyOtp:", error);
+      } else {
+        toast.success("Acesso liberado!");
+        // limpa a URL pra não vazar o token
+        setSearchParams({}, { replace: true });
+        navigate("/", { replace: true });
+      }
+      setSubmitting(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!authLoading && session) {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/";

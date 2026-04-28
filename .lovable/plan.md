@@ -1,22 +1,41 @@
-## Ajustes no chat (mobile) — `src/pages/ConversaDetail.tsx`
+## Objetivo
 
-### 1. Cabeçalho — evitar sobreposição com a status bar
-O `<header>` já usa `pt-safe` (padding-top do safe-area-inset), mas em alguns dispositivos isso é insuficiente / o navegador não expõe o inset (ex.: PWA standalone com notch). Vou reforçar o espaçamento superior:
+Permitir que o `Login.tsx` reconheça links de acesso enviados pelo Lovable Connect & Flow no formato:
 
-- Adicionar um padding-top mínimo garantido além do `pt-safe`:
-  - Trocar `pt-safe` por `pt-[max(env(safe-area-inset-top),0.75rem)]` no `<header>` (linha 261), garantindo no mínimo 12px mesmo quando o inset = 0.
-- Aumentar levemente o padding vertical da linha do header de `py-2` para `py-2.5` (linha 262), dando mais respiro para o nome do contato e a seta de voltar.
+```
+/login?magic_token=...&email=...
+```
 
-Resultado: o nome "Natan Borges" e o botão de voltar ficam claramente abaixo da barra de status, sem sobreposição.
+Quando esses parâmetros estiverem presentes na URL, o Messenger deve validar o token via `supabase.auth.verifyOtp` e logar o usuário automaticamente.
 
-### 2. Largura máxima dos balões — confirmar 70% no mobile
-A classe atual já é `max-w-[70%] ... md:max-w-[55%]` (linha 332), o que corresponde ao pedido. **Nenhuma alteração necessária aqui** — o requisito de 70% no mobile já está atendido.
+## Mudanças
 
-### 3. Cores
-- **Não alterar** nenhuma cor. Paleta atual de azuis (`bg-gradient-header`, `bubble-out`, `bubble-in`) permanece intacta.
+### `src/pages/Login.tsx`
 
-### Arquivos alterados
-- `src/pages/ConversaDetail.tsx` — apenas as classes do `<header>` (linhas 261–262).
+1. **Imports adicionais** (no topo):
+   - `useEffect` de `react`
+   - `useSearchParams` de `react-router-dom`
+   - `supabase` de `@/integrations/supabase/client`
 
-### Observação ao usuário
-Em PWAs já instalados na tela inicial, pode ser necessário fechar e reabrir o app para o novo padding entrar em vigor.
+2. **Dentro do componente `Login`**, logo após `const [submitting, setSubmitting] = useState(false);`:
+   - Adicionar `const [searchParams, setSearchParams] = useSearchParams();`
+   - Adicionar um `useEffect` (executa uma única vez no mount) que:
+     - Lê `magic_token` e `email` da query string
+     - Se ambos existirem, chama `supabase.auth.verifyOtp({ email, token, type: "magiclink" })`
+     - Em caso de sucesso: toast de boas-vindas, limpa a URL via `setSearchParams({}, { replace: true })` para não vazar o token, navega para `/`
+     - Em caso de erro: toast "Link de acesso inválido ou expirado" e log no console
+     - Define `setSubmitting(true/false)` durante o processo para desabilitar o botão e mostrar spinner
+
+3. **Cuidado com o early-return**: o bloco `if (!authLoading && session) return <Navigate.../>` está antes do `useEffect`. Como hooks não podem ficar abaixo de returns condicionais, o `useEffect` precisa ser declarado **antes** desse `if` (junto com o `useSearchParams`). Vou reorganizar mantendo a regra dos hooks.
+
+## Detalhes técnicos
+
+- O fluxo `verifyOtp` com `type: "magiclink"` cria a sessão automaticamente; o `AuthProvider` (já com `onAuthStateChange`) detectará e popula `session`/`profile`. O `navigate("/")` garante a saída da tela de login.
+- A limpeza dos params via `setSearchParams({}, { replace: true })` evita que o token fique no histórico do navegador.
+- Como o `useEffect` roda no mount com deps vazias, vou suprimir o warning do eslint-react-hooks com um comentário, mantendo o comportamento "uma única vez" pedido pelo snippet.
+- Nenhuma mudança em `AuthProvider`, rotas ou backend é necessária — o token é emitido pelo projeto Lovable Connect & Flow e validado contra o mesmo Supabase compartilhado (`kvggebtnqmxydtwaumqz`).
+
+## Fora do escopo
+
+- Não criar tela de signup nem fluxo de recuperação de senha (assuntos anteriores ainda em aberto).
+- Não alterar `.env` nem o `client.ts`.
