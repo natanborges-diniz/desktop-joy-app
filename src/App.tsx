@@ -9,6 +9,9 @@ import Login from "@/pages/Login";
 import ConversasList from "@/pages/ConversasList";
 import ConversaDetail from "@/pages/ConversaDetail";
 import DemandasList from "@/pages/DemandasList";
+import DemandaChat from "@/pages/DemandaChat";
+import LojaNovaDemanda from "@/pages/LojaNovaDemanda";
+import LojaMinhasDemandas from "@/pages/LojaMinhasDemandas";
 import NotificacoesList from "@/pages/NotificacoesList";
 import Perfil from "@/pages/Perfil";
 import NotFound from "@/pages/NotFound.tsx";
@@ -33,6 +36,9 @@ const App = () => (
             <Route path="/" element={<ConversasList />} />
             <Route path="/conversas/:otherId" element={<ConversaDetail />} />
             <Route path="/demandas" element={<DemandasList />} />
+            <Route path="/demandas/:id" element={<DemandaChat />} />
+            <Route path="/nova-demanda" element={<LojaNovaDemanda />} />
+            <Route path="/minhas-demandas" element={<LojaMinhasDemandas />} />
             <Route path="/notificacoes" element={<NotificacoesList />} />
             <Route path="/perfil" element={<Perfil />} />
           </Route>
