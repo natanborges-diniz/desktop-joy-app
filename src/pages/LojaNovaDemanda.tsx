@@ -590,7 +590,7 @@ export default function LojaNovaDemanda() {
                           ))}
                         </select>
                       )
-                    ) : et.tipo_input === "texto_prefilled" ? (
+                    ) : tef === "texto_prefilled" ? (
                       <Input
                         value={dados[et.campo] ?? ""}
                         onChange={(e) =>
