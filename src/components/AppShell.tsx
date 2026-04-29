@@ -18,6 +18,7 @@ type NavItem = {
 
 const baseItems: NavItem[] = [
   { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" },
+  { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, lojaOnly: true },
   { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, lojaOnly: true },
   { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, lojaOnly: true },
   { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, lojaOnly: true },
