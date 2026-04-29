@@ -122,7 +122,7 @@ export default function AppShell() {
         {/* Bottom nav — mobile */}
         {!hideBottomNav && (
           <nav className="border-t border-border bg-surface pb-safe md:hidden">
-            <div className="grid grid-cols-4">
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${bottomCols}, minmax(0, 1fr))` }}>
               {items.map(({ to, label, icon: Icon, exact, badge }) => (
                 <NavLink
                   key={to}
