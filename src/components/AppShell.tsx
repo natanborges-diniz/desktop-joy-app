@@ -1,14 +1,26 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, ClipboardList, MessageSquare, User } from "lucide-react";
+import { Bell, ClipboardList, FilePlus2, Inbox, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
+import { useLojaContext } from "@/hooks/useLojaContext";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 
-const items = [
-  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" as const },
-  { to: "/demandas", label: "Demandas", icon: ClipboardList, exact: false, badge: null },
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof MessageSquare;
+  exact: boolean;
+  badge: "messages" | null;
+  lojaOnly?: boolean;
+};
+
+const baseItems: NavItem[] = [
+  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" },
+  { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, lojaOnly: true },
+  { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, lojaOnly: true },
+  { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, lojaOnly: true },
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null },
 ];
