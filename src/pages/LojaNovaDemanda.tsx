@@ -234,7 +234,28 @@ export default function LojaNovaDemanda() {
     setErros({});
   }
 
-  function voltar() {
+  // Se lojaNome/profileNome chegarem DEPOIS do fluxo ser aberto, sincroniza.
+  useEffect(() => {
+    if (!fluxoAtivo) return;
+    setDados((d) => {
+      const next = { ...d };
+      let changed = false;
+      for (const et of fluxoAtivo.etapas ?? []) {
+        const tef = tipoEfetivo(et);
+        if (tef === "loja" && lojaNome && !next[et.campo]) {
+          next[et.campo] = lojaNome;
+          changed = true;
+        }
+        if (tef === "texto_prefilled" && profileNome && !next[et.campo]) {
+          next[et.campo] = profileNome;
+          changed = true;
+        }
+      }
+      return changed ? next : d;
+    });
+  }, [fluxoAtivo, lojaNome, profileNome]);
+
+
     if (resultado) {
       setResultado(null);
       setFluxoAtivo(null);
