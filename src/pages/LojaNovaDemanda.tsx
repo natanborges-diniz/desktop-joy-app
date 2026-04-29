@@ -327,7 +327,19 @@ export default function LojaNovaDemanda() {
                       >
                         Compartilhar
                       </Button>
-                    )}
+              )}
+
+              {resultado.payment_link_id && resultado.cliente_envio_status === "enviado" && (
+                <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+                  ✅ Link enviado por WhatsApp para o cliente.
+                </div>
+              )}
+              {resultado.payment_link_id && resultado.cliente_envio_status === "falhou" && (
+                <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                  ⚠️ Link gerado, mas não foi possível enviar ao cliente automaticamente
+                  {resultado.cliente_envio_erro ? ` (${resultado.cliente_envio_erro})` : ""}. Copie e envie manualmente.
+                </div>
+              )}
                   </div>
                 </div>
               )}
