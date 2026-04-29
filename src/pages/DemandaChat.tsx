@@ -72,6 +72,18 @@ export default function DemandaChat() {
     void load();
   }, [id]);
 
+  // Marca thread como visto pela loja (✓✓ no painel do operador)
+  useEffect(() => {
+    if (!id || !user) return;
+    void supabase
+      .from("demandas_loja")
+      .update({
+        visto_pela_loja_at: new Date().toISOString(),
+        visto_por_loja_user_id: user.id,
+      })
+      .eq("id", id);
+  }, [id, user?.id]);
+
   useEffect(() => {
     if (!id) return;
     const ch = supabase
