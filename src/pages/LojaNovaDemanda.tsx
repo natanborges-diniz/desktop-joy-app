@@ -62,6 +62,15 @@ type Fluxo = {
 
 type Anexo = { url: string; mime_type: string; nome: string };
 
+type CpfAprovado = {
+  id: string;
+  protocolo: string | null;
+  cpf: string | null;
+  cliente: string | null;
+  valor: number | string | null;
+  created_at: string;
+};
+
 type Resultado = {
   status: string;
   solicitacao_id: string;
@@ -72,6 +81,9 @@ type Resultado = {
   cliente_envio_status?: "enviado" | "falhou" | "pulado";
   cliente_envio_erro?: string | null;
 };
+
+const CAMPOS_TRAVADOS_BOLETO = new Set(["cpf", "cliente", "valor"]);
+
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES_POR_ETAPA = 10;
@@ -152,7 +164,16 @@ export default function LojaNovaDemanda() {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [profileNome, setProfileNome] = useState<string>("");
+  const [cpfsAprovados, setCpfsAprovados] = useState<CpfAprovado[] | null>(null);
+  const [carregandoCpfs, setCarregandoCpfs] = useState(false);
+  const [consultaCpfSelecionada, setConsultaCpfSelecionada] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Opção de menu para o fluxo "consulta_cpf" (usada pelo card de bloqueio do boleto)
+  const opcaoConsultaCpf = useMemo(
+    () => opcoes.find((o) => o.tipo === "fluxo" && o.fluxo === "consulta_cpf") ?? null,
+    [opcoes],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -223,16 +244,6 @@ export default function LojaNovaDemanda() {
       return;
     }
     const fluxo = data as Fluxo;
-    // DEBUG: mostra como cada etapa foi interpretada (remover depois)
-    console.log("[LojaNovaDemanda] fluxo:", fluxo.chave, "lojaNome:", lojaNome, "tipoUsuario:", tipoUsuario);
-    console.table(
-      (fluxo.etapas ?? []).map((et) => ({
-        campo: et.campo,
-        tipo_input_json: et.tipo_input,
-        tipo_efetivo: tipoEfetivo(et),
-        label: (et.label ?? et.mensagem ?? "").slice(0, 60),
-      })),
-    );
     // Pré-preenche etapas texto_prefilled e loja (usa tipo efetivo para fluxos legados)
     const initial: Record<string, string> = {};
     for (const et of fluxo.etapas ?? []) {
@@ -248,7 +259,47 @@ export default function LojaNovaDemanda() {
     setDados(initial);
     setAnexos({});
     setErros({});
+    setConsultaCpfSelecionada(null);
+    setCpfsAprovados(null);
+
+    // Fluxo "gerar_boleto": só permite seguir com base em uma consulta_cpf aprovada
+    if (fluxo.chave === "gerar_boleto" && lojaNome) {
+      void carregarCpfsAprovados(lojaNome);
+    }
   }
+
+  async function carregarCpfsAprovados(loja: string) {
+    setCarregandoCpfs(true);
+    const { data, error } = await supabase
+      .from("solicitacoes")
+      .select("id,protocolo,cpf,cliente,valor,created_at,metadata")
+      .eq("fluxo_chave", "consulta_cpf")
+      .eq("status", "aprovada")
+      .eq("loja_nome", loja)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setCarregandoCpfs(false);
+    if (error) {
+      toast.error("Falha ao carregar consultas de CPF aprovadas");
+      setCpfsAprovados([]);
+      return;
+    }
+    const filtradas = (data ?? []).filter((r: any) => {
+      const meta = r?.metadata ?? {};
+      return !meta?.boleto_solicitacao_id;
+    });
+    setCpfsAprovados(
+      filtradas.map((r: any) => ({
+        id: r.id,
+        protocolo: r.protocolo ?? null,
+        cpf: r.cpf ?? null,
+        cliente: r.cliente ?? null,
+        valor: r.valor ?? null,
+        created_at: r.created_at,
+      })),
+    );
+  }
+
 
   // Se lojaNome/profileNome chegarem DEPOIS do fluxo ser aberto, sincroniza.
   useEffect(() => {
@@ -272,14 +323,29 @@ export default function LojaNovaDemanda() {
   }, [fluxoAtivo, lojaNome, profileNome]);
 
 
+  function escolherCpfAprovado(c: CpfAprovado) {
+    setConsultaCpfSelecionada(c.id);
+    setDados((d) => ({
+      ...d,
+      cpf: c.cpf ?? d.cpf ?? "",
+      cliente: c.cliente ?? d.cliente ?? "",
+      valor: c.valor != null ? String(c.valor) : (d.valor ?? ""),
+    }));
+    setErros((e) => ({ ...e, cpf: null, cliente: null, valor: null }));
+  }
+
   function voltar() {
     if (resultado) {
       setResultado(null);
       setFluxoAtivo(null);
+      setConsultaCpfSelecionada(null);
+      setCpfsAprovados(null);
       return;
     }
     if (fluxoAtivo) {
       setFluxoAtivo(null);
+      setConsultaCpfSelecionada(null);
+      setCpfsAprovados(null);
       return;
     }
     setTrilha((t) => t.slice(0, -1));
