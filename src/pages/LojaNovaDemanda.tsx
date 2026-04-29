@@ -164,7 +164,16 @@ export default function LojaNovaDemanda() {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [profileNome, setProfileNome] = useState<string>("");
+  const [cpfsAprovados, setCpfsAprovados] = useState<CpfAprovado[] | null>(null);
+  const [carregandoCpfs, setCarregandoCpfs] = useState(false);
+  const [consultaCpfSelecionada, setConsultaCpfSelecionada] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Opção de menu para o fluxo "consulta_cpf" (usada pelo card de bloqueio do boleto)
+  const opcaoConsultaCpf = useMemo(
+    () => opcoes.find((o) => o.tipo === "fluxo" && o.fluxo === "consulta_cpf") ?? null,
+    [opcoes],
+  );
 
   useEffect(() => {
     let alive = true;
