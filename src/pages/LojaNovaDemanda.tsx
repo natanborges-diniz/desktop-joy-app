@@ -84,6 +84,25 @@ type Resultado = {
 
 const CAMPOS_TRAVADOS_BOLETO = new Set(["cpf", "cliente", "valor"]);
 
+function mascararCpf(raw: string | null | undefined): string {
+  const d = String(raw ?? "").replace(/\D/g, "");
+  if (d.length !== 11) return raw ?? "";
+  return `${d.slice(0, 3)}.***.***-${d.slice(9)}`;
+}
+
+function formatarBRL(v: number | string | null | undefined): string {
+  if (v == null || v === "") return "—";
+  const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatarDataCurta(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES_POR_ETAPA = 10;
@@ -270,12 +289,15 @@ export default function LojaNovaDemanda() {
 
   async function carregarCpfsAprovados(loja: string) {
     setCarregandoCpfs(true);
+    const desdeIso = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString();
     const { data, error } = await supabase
       .from("solicitacoes")
-      .select("id,protocolo,cpf,cliente,valor,created_at,metadata")
-      .eq("fluxo_chave", "consulta_cpf")
-      .eq("status", "aprovada")
-      .eq("loja_nome", loja)
+      .select("id,protocolo,created_at,metadata")
+      .eq("tipo", "consulta_cpf")
+      .eq("metadata->>resultado_consulta", "aprovado")
+      .eq("metadata->>loja_nome", loja)
+      .is("metadata->>boleto_solicitacao_id", null)
+      .gte("created_at", desdeIso)
       .order("created_at", { ascending: false })
       .limit(50);
     setCarregandoCpfs(false);
@@ -284,19 +306,18 @@ export default function LojaNovaDemanda() {
       setCpfsAprovados([]);
       return;
     }
-    const filtradas = (data ?? []).filter((r: any) => {
-      const meta = r?.metadata ?? {};
-      return !meta?.boleto_solicitacao_id;
-    });
     setCpfsAprovados(
-      filtradas.map((r: any) => ({
-        id: r.id,
-        protocolo: r.protocolo ?? null,
-        cpf: r.cpf ?? null,
-        cliente: r.cliente ?? null,
-        valor: r.valor ?? null,
-        created_at: r.created_at,
-      })),
+      (data ?? []).map((r: any) => {
+        const m = r?.metadata ?? {};
+        return {
+          id: r.id,
+          protocolo: r.protocolo ?? null,
+          cpf: m.cpf ?? null,
+          cliente: m.cliente ?? m.nome_cliente ?? null,
+          valor: m.valor_aprovado ?? m.valor ?? null,
+          created_at: r.created_at,
+        };
+      }),
     );
   }
 
@@ -398,8 +419,24 @@ export default function LojaNovaDemanda() {
 
   async function enviar() {
     if (!fluxoAtivo) return;
+
+    // Boleto: precisa ter consulta_cpf aprovada selecionada
+    if (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada) {
+      toast.error("Selecione uma Consulta de CPF aprovada");
+      return;
+    }
+
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
+      // Pula validação de campos travados pelo CPF aprovado (vêm prontos do servidor)
+      if (
+        fluxoAtivo.chave === "gerar_boleto" &&
+        consultaCpfSelecionada &&
+        CAMPOS_TRAVADOS_BOLETO.has(et.campo)
+      ) {
+        novosErros[et.campo] = null;
+        continue;
+      }
       if (tipoEfetivo(et) === "imagem") {
         if (et.obrigatorio !== false && !(anexos[et.campo]?.length))
           novosErros[et.campo] = "Anexe ao menos um arquivo";
@@ -412,9 +449,13 @@ export default function LojaNovaDemanda() {
     if (Object.values(novosErros).some(Boolean)) return;
 
     setEnviando(true);
+    const dadosEnvio: Record<string, string> = { ...dados };
+    if (fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada) {
+      dadosEnvio.consulta_cpf_id = consultaCpfSelecionada;
+    }
     const payload: Record<string, unknown> = {
       fluxo_chave: fluxoAtivo.chave,
-      dados,
+      dados: dadosEnvio,
       anexos: Object.values(anexos).flat(),
     };
     if (lojaNome) {
@@ -563,11 +604,149 @@ export default function LojaNovaDemanda() {
             </div>
           ) : fluxoAtivo ? (
             <div className="space-y-4">
-              {fluxoAtivo.etapas.map((et) => {
-                const erro = erros[et.campo];
-                const label = et.label ?? et.mensagem ?? et.campo;
-                const tef = tipoEfetivo(et);
-                return (
+              {/* === Fluxo gerar_boleto: bloqueio / seleção de CPF aprovado === */}
+              {fluxoAtivo.chave === "gerar_boleto" && (
+                <>
+                  {carregandoCpfs || cpfsAprovados === null ? (
+                    <div className="flex items-center justify-center rounded-xl border border-border bg-card p-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        Buscando consultas de CPF aprovadas…
+                      </span>
+                    </div>
+                  ) : cpfsAprovados.length === 0 ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+                      <h3 className="mb-1 text-sm font-semibold text-foreground">
+                        Nenhuma Consulta de CPF aprovada disponível
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Para gerar boleto é preciso ter uma Consulta de CPF aprovada
+                        pelo financeiro nos últimos 60 dias.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {opcaoConsultaCpf && (
+                          <Button onClick={() => entrar(opcaoConsultaCpf)}>
+                            Solicitar Consulta de CPF
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={voltar}>
+                          Voltar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : !consultaCpfSelecionada ? (
+                    <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                      <h3 className="mb-3 text-sm font-semibold text-foreground">
+                        Selecione o CPF aprovado para este boleto
+                      </h3>
+                      <ul className="space-y-2">
+                        {cpfsAprovados.map((c) => (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              onClick={() => escolherCpfAprovado(c)}
+                              className="w-full rounded-lg border border-border bg-background p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {c.cliente ?? "—"}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    CPF {mascararCpf(c.cpf)}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-primary">
+                                    {formatarBRL(c.valor)}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    aprovado em {formatarDataCurta(c.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    (() => {
+                      const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
+                      if (!sel) return null;
+                      return (
+                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                              CPF aprovado selecionado
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConsultaCpfSelecionada(null);
+                                setDados((d) => ({ ...d, cpf: "", cliente: "", valor: "" }));
+                              }}
+                              className="text-xs text-muted-foreground underline hover:text-foreground"
+                            >
+                              Trocar
+                            </button>
+                          </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-foreground">
+                                {sel.cliente ?? "—"}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                CPF {mascararCpf(sel.cpf)} · aprovado em{" "}
+                                {formatarDataCurta(sel.created_at)}
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-primary">
+                              {formatarBRL(sel.valor)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+                </>
+              )}
+
+              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) &&
+                fluxoAtivo.etapas.map((et) => {
+                  const erro = erros[et.campo];
+                  const label = et.label ?? et.mensagem ?? et.campo;
+                  const tef = tipoEfetivo(et);
+                  const travadoBoleto =
+                    fluxoAtivo.chave === "gerar_boleto" &&
+                    !!consultaCpfSelecionada &&
+                    CAMPOS_TRAVADOS_BOLETO.has(et.campo);
+                  if (travadoBoleto) {
+                    return (
+                      <div key={et.campo} className="space-y-1.5">
+                        <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
+                          {label}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={
+                              et.campo === "valor"
+                                ? formatarBRL(dados[et.campo])
+                                : et.campo === "cpf"
+                                  ? mascararCpf(dados[et.campo])
+                                  : (dados[et.campo] ?? "")
+                            }
+                            readOnly
+                            className="flex-1"
+                          />
+                          <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                            do CPF aprovado
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
                   <div key={et.campo} className="space-y-1.5">
                     <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
                       {label}
@@ -746,14 +925,23 @@ export default function LojaNovaDemanda() {
                 );
               })}
 
-              <Button className="w-full" onClick={enviar} disabled={enviando}>
-                {enviando ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                Enviar solicitação
-              </Button>
+              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) && (
+                <Button
+                  className="w-full"
+                  onClick={enviar}
+                  disabled={
+                    enviando ||
+                    (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada)
+                  }
+                >
+                  {enviando ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Enviar solicitação
+                </Button>
+              )}
             </div>
           ) : filhos.length === 0 ? (
             <p className="mt-10 text-center text-sm text-muted-foreground">
