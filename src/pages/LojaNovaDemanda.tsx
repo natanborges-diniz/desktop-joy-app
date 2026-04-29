@@ -223,6 +223,16 @@ export default function LojaNovaDemanda() {
       return;
     }
     const fluxo = data as Fluxo;
+    // DEBUG: mostra como cada etapa foi interpretada (remover depois)
+    console.log("[LojaNovaDemanda] fluxo:", fluxo.chave, "lojaNome:", lojaNome, "tipoUsuario:", tipoUsuario);
+    console.table(
+      (fluxo.etapas ?? []).map((et) => ({
+        campo: et.campo,
+        tipo_input_json: et.tipo_input,
+        tipo_efetivo: tipoEfetivo(et),
+        label: (et.label ?? et.mensagem ?? "").slice(0, 60),
+      })),
+    );
     // Pré-preenche etapas texto_prefilled e loja (usa tipo efetivo para fluxos legados)
     const initial: Record<string, string> = {};
     for (const et of fluxo.etapas ?? []) {
