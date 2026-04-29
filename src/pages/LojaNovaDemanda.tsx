@@ -217,13 +217,14 @@ export default function LojaNovaDemanda() {
       return;
     }
     const fluxo = data as Fluxo;
-    // Pré-preenche etapas texto_prefilled e loja
+    // Pré-preenche etapas texto_prefilled e loja (usa tipo efetivo para fluxos legados)
     const initial: Record<string, string> = {};
     for (const et of fluxo.etapas ?? []) {
-      if (et.tipo_input === "texto_prefilled" && profileNome) {
+      const tef = tipoEfetivo(et);
+      if (tef === "texto_prefilled" && profileNome) {
         initial[et.campo] = profileNome;
       }
-      if (et.tipo_input === "loja" && lojaNome) {
+      if (tef === "loja" && lojaNome) {
         initial[et.campo] = lojaNome;
       }
     }
