@@ -76,9 +76,23 @@ type Resultado = {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES_POR_ETAPA = 10;
 
+// Heurística: alguns fluxos legados não têm `tipo_input: "imagem"` ou `"loja"`
+// configurado no JSON, mas o nome do campo deixa claro a intenção. Detectamos
+// pelo nome para que o wizard renderize o controle certo automaticamente.
+const CAMPOS_IMAGEM = /(anexo|comprovante|foto|imagem|nota_fiscal|cupom|recibo|documento_foto|print)/i;
+const CAMPOS_LOJA = /^(loja|nome_loja|loja_nome|filial)$/i;
+
+function tipoEfetivo(et: Etapa): EtapaInput {
+  if (et.tipo_input === "imagem" || et.tipo_input === "loja" || et.tipo_input === "texto_prefilled")
+    return et.tipo_input;
+  if (CAMPOS_IMAGEM.test(et.campo)) return "imagem";
+  if (CAMPOS_LOJA.test(et.campo)) return "loja";
+  return et.tipo_input;
+}
+
 function validar(et: Etapa, raw: string): string | null {
   const v = (raw ?? "").trim();
-  if (et.tipo_input === "loja") {
+  if (tipoEfetivo(et) === "loja") {
     if (et.obrigatorio !== false && !v) return "Selecione uma loja";
     return null;
   }
