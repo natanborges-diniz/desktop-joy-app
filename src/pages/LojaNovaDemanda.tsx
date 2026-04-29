@@ -604,11 +604,149 @@ export default function LojaNovaDemanda() {
             </div>
           ) : fluxoAtivo ? (
             <div className="space-y-4">
-              {fluxoAtivo.etapas.map((et) => {
-                const erro = erros[et.campo];
-                const label = et.label ?? et.mensagem ?? et.campo;
-                const tef = tipoEfetivo(et);
-                return (
+              {/* === Fluxo gerar_boleto: bloqueio / seleção de CPF aprovado === */}
+              {fluxoAtivo.chave === "gerar_boleto" && (
+                <>
+                  {carregandoCpfs || cpfsAprovados === null ? (
+                    <div className="flex items-center justify-center rounded-xl border border-border bg-card p-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        Buscando consultas de CPF aprovadas…
+                      </span>
+                    </div>
+                  ) : cpfsAprovados.length === 0 ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+                      <h3 className="mb-1 text-sm font-semibold text-foreground">
+                        Nenhuma Consulta de CPF aprovada disponível
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Para gerar boleto é preciso ter uma Consulta de CPF aprovada
+                        pelo financeiro nos últimos 60 dias.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {opcaoConsultaCpf && (
+                          <Button onClick={() => entrar(opcaoConsultaCpf)}>
+                            Solicitar Consulta de CPF
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={voltar}>
+                          Voltar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : !consultaCpfSelecionada ? (
+                    <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                      <h3 className="mb-3 text-sm font-semibold text-foreground">
+                        Selecione o CPF aprovado para este boleto
+                      </h3>
+                      <ul className="space-y-2">
+                        {cpfsAprovados.map((c) => (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              onClick={() => escolherCpfAprovado(c)}
+                              className="w-full rounded-lg border border-border bg-background p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {c.cliente ?? "—"}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    CPF {mascararCpf(c.cpf)}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-primary">
+                                    {formatarBRL(c.valor)}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    aprovado em {formatarDataCurta(c.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    (() => {
+                      const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
+                      if (!sel) return null;
+                      return (
+                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                              CPF aprovado selecionado
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConsultaCpfSelecionada(null);
+                                setDados((d) => ({ ...d, cpf: "", cliente: "", valor: "" }));
+                              }}
+                              className="text-xs text-muted-foreground underline hover:text-foreground"
+                            >
+                              Trocar
+                            </button>
+                          </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-foreground">
+                                {sel.cliente ?? "—"}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                CPF {mascararCpf(sel.cpf)} · aprovado em{" "}
+                                {formatarDataCurta(sel.created_at)}
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-primary">
+                              {formatarBRL(sel.valor)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+                </>
+              )}
+
+              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) &&
+                fluxoAtivo.etapas.map((et) => {
+                  const erro = erros[et.campo];
+                  const label = et.label ?? et.mensagem ?? et.campo;
+                  const tef = tipoEfetivo(et);
+                  const travadoBoleto =
+                    fluxoAtivo.chave === "gerar_boleto" &&
+                    !!consultaCpfSelecionada &&
+                    CAMPOS_TRAVADOS_BOLETO.has(et.campo);
+                  if (travadoBoleto) {
+                    return (
+                      <div key={et.campo} className="space-y-1.5">
+                        <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
+                          {label}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={
+                              et.campo === "valor"
+                                ? formatarBRL(dados[et.campo])
+                                : et.campo === "cpf"
+                                  ? mascararCpf(dados[et.campo])
+                                  : (dados[et.campo] ?? "")
+                            }
+                            readOnly
+                            className="flex-1"
+                          />
+                          <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                            do CPF aprovado
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
                   <div key={et.campo} className="space-y-1.5">
                     <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
                       {label}
