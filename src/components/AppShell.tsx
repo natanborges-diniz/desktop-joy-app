@@ -48,11 +48,17 @@ export default function AppShell() {
   const unread = useUnreadCount();
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
+  const { isLoja } = useLojaContext();
 
   const isHome = location.pathname === "/";
   const isConversaRoute = isHome || /^\/conversas\/[^/]+/.test(location.pathname);
-  // No mobile, esconder bottom nav quando dentro de uma conversa específica
-  const hideBottomNav = /^\/conversas\/[^/]+/.test(location.pathname);
+  // No mobile, esconder bottom nav quando dentro de uma conversa específica ou de uma demanda específica
+  const hideBottomNav =
+    /^\/conversas\/[^/]+/.test(location.pathname) ||
+    /^\/demandas\/[^/]+/.test(location.pathname);
+
+  const items = baseItems.filter((it) => !it.lojaOnly || isLoja);
+  const bottomCols = items.length;
 
   return (
     <div className="flex h-[100dvh] w-full bg-background">
