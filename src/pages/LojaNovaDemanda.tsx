@@ -76,9 +76,23 @@ type Resultado = {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES_POR_ETAPA = 10;
 
+// Heurística: alguns fluxos legados não têm `tipo_input: "imagem"` ou `"loja"`
+// configurado no JSON, mas o nome do campo deixa claro a intenção. Detectamos
+// pelo nome para que o wizard renderize o controle certo automaticamente.
+const CAMPOS_IMAGEM = /(anexo|comprovante|foto|imagem|nota_fiscal|cupom|recibo|documento_foto|print)/i;
+const CAMPOS_LOJA = /^(loja|nome_loja|loja_nome|filial)$/i;
+
+function tipoEfetivo(et: Etapa): EtapaInput {
+  if (et.tipo_input === "imagem" || et.tipo_input === "loja" || et.tipo_input === "texto_prefilled")
+    return et.tipo_input;
+  if (CAMPOS_IMAGEM.test(et.campo)) return "imagem";
+  if (CAMPOS_LOJA.test(et.campo)) return "loja";
+  return et.tipo_input;
+}
+
 function validar(et: Etapa, raw: string): string | null {
   const v = (raw ?? "").trim();
-  if (et.tipo_input === "loja") {
+  if (tipoEfetivo(et) === "loja") {
     if (et.obrigatorio !== false && !v) return "Selecione uma loja";
     return null;
   }
@@ -203,13 +217,14 @@ export default function LojaNovaDemanda() {
       return;
     }
     const fluxo = data as Fluxo;
-    // Pré-preenche etapas texto_prefilled e loja
+    // Pré-preenche etapas texto_prefilled e loja (usa tipo efetivo para fluxos legados)
     const initial: Record<string, string> = {};
     for (const et of fluxo.etapas ?? []) {
-      if (et.tipo_input === "texto_prefilled" && profileNome) {
+      const tef = tipoEfetivo(et);
+      if (tef === "texto_prefilled" && profileNome) {
         initial[et.campo] = profileNome;
       }
-      if (et.tipo_input === "loja" && lojaNome) {
+      if (tef === "loja" && lojaNome) {
         initial[et.campo] = lojaNome;
       }
     }
@@ -218,6 +233,28 @@ export default function LojaNovaDemanda() {
     setAnexos({});
     setErros({});
   }
+
+  // Se lojaNome/profileNome chegarem DEPOIS do fluxo ser aberto, sincroniza.
+  useEffect(() => {
+    if (!fluxoAtivo) return;
+    setDados((d) => {
+      const next = { ...d };
+      let changed = false;
+      for (const et of fluxoAtivo.etapas ?? []) {
+        const tef = tipoEfetivo(et);
+        if (tef === "loja" && lojaNome && !next[et.campo]) {
+          next[et.campo] = lojaNome;
+          changed = true;
+        }
+        if (tef === "texto_prefilled" && profileNome && !next[et.campo]) {
+          next[et.campo] = profileNome;
+          changed = true;
+        }
+      }
+      return changed ? next : d;
+    });
+  }, [fluxoAtivo, lojaNome, profileNome]);
+
 
   function voltar() {
     if (resultado) {
@@ -281,7 +318,7 @@ export default function LojaNovaDemanda() {
     if (!fluxoAtivo) return;
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
-      if (et.tipo_input === "imagem") {
+      if (tipoEfetivo(et) === "imagem") {
         if (et.obrigatorio !== false && !(anexos[et.campo]?.length))
           novosErros[et.campo] = "Anexe ao menos um arquivo";
         else novosErros[et.campo] = null;
@@ -447,13 +484,14 @@ export default function LojaNovaDemanda() {
               {fluxoAtivo.etapas.map((et) => {
                 const erro = erros[et.campo];
                 const label = et.label ?? et.mensagem ?? et.campo;
+                const tef = tipoEfetivo(et);
                 return (
                   <div key={et.campo} className="space-y-1.5">
                     <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
                       {label}
                     </label>
 
-                    {et.tipo_input === "imagem" ? (
+                    {tef === "imagem" ? (
                       <div className="space-y-2">
                         <input
                           ref={(el) => (fileRefs.current[`${et.campo}__camera`] = el)}
@@ -550,7 +588,7 @@ export default function LojaNovaDemanda() {
                           </ul>
                         )}
                       </div>
-                    ) : et.tipo_input === "loja" ? (
+                    ) : tef === "loja" ? (
                       lojaTravada ? (
                         <div className="flex items-center gap-2">
                           <Input value={dados[et.campo] ?? lojaNome ?? ""} readOnly className="flex-1" />
@@ -574,7 +612,7 @@ export default function LojaNovaDemanda() {
                           ))}
                         </select>
                       )
-                    ) : et.tipo_input === "texto_prefilled" ? (
+                    ) : tef === "texto_prefilled" ? (
                       <Input
                         value={dados[et.campo] ?? ""}
                         onChange={(e) =>
