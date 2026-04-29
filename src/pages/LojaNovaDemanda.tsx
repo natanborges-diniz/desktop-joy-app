@@ -56,6 +56,8 @@ type Resultado = {
   tipo: string;
   url?: string;
   payment_link_id?: string;
+  cliente_envio_status?: "enviado" | "falhou" | "pulado";
+  cliente_envio_erro?: string | null;
 };
 
 function validar(et: Etapa, raw: string): string | null {
@@ -82,6 +84,10 @@ function validar(et: Etapa, raw: string): string | null {
   if (et.tipo_input === "documento") {
     const d = v.replace(/\D/g, "");
     if (d.length !== 11 && d.length !== 14) return "CPF (11) ou CNPJ (14)";
+  }
+  if (et.campo === "cliente_whatsapp") {
+    const d = v.replace(/\D/g, "");
+    if (d.length < 10 || d.length > 13) return "Informe DDD + número (10–13 dígitos)";
   }
   if (et.tipo_input === "texto") {
     if (val.min_length != null && v.length < val.min_length) return `Mínimo ${val.min_length} caracteres`;
@@ -321,7 +327,19 @@ export default function LojaNovaDemanda() {
                       >
                         Compartilhar
                       </Button>
-                    )}
+              )}
+
+              {resultado.payment_link_id && resultado.cliente_envio_status === "enviado" && (
+                <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+                  ✅ Link enviado por WhatsApp para o cliente.
+                </div>
+              )}
+              {resultado.payment_link_id && resultado.cliente_envio_status === "falhou" && (
+                <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                  ⚠️ Link gerado, mas não foi possível enviar ao cliente automaticamente
+                  {resultado.cliente_envio_erro ? ` (${resultado.cliente_envio_erro})` : ""}. Copie e envie manualmente.
+                </div>
+              )}
                   </div>
                 </div>
               )}
@@ -394,6 +412,21 @@ export default function LojaNovaDemanda() {
                           setDados((d) => ({ ...d, [et.campo]: e.target.value }))
                         }
                       />
+                    ) : et.campo === "cliente_whatsapp" ? (
+                      <div className="space-y-1">
+                        <Input
+                          type="tel"
+                          inputMode="tel"
+                          placeholder="(11) 91234-5678"
+                          value={dados[et.campo] ?? ""}
+                          onChange={(e) =>
+                            setDados((d) => ({ ...d, [et.campo]: e.target.value }))
+                          }
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          DDD + número (10 a 13 dígitos). O link será enviado por WhatsApp.
+                        </p>
+                      </div>
                     ) : (
                       <Input
                         inputMode={
