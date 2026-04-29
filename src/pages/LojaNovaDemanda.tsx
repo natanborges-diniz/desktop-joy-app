@@ -462,13 +462,14 @@ export default function LojaNovaDemanda() {
               {fluxoAtivo.etapas.map((et) => {
                 const erro = erros[et.campo];
                 const label = et.label ?? et.mensagem ?? et.campo;
+                const tef = tipoEfetivo(et);
                 return (
                   <div key={et.campo} className="space-y-1.5">
                     <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
                       {label}
                     </label>
 
-                    {et.tipo_input === "imagem" ? (
+                    {tef === "imagem" ? (
                       <div className="space-y-2">
                         <input
                           ref={(el) => (fileRefs.current[`${et.campo}__camera`] = el)}
