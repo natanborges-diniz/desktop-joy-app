@@ -62,6 +62,15 @@ type Fluxo = {
 
 type Anexo = { url: string; mime_type: string; nome: string };
 
+type CpfAprovado = {
+  id: string;
+  protocolo: string | null;
+  cpf: string | null;
+  cliente: string | null;
+  valor: number | string | null;
+  created_at: string;
+};
+
 type Resultado = {
   status: string;
   solicitacao_id: string;
@@ -72,6 +81,9 @@ type Resultado = {
   cliente_envio_status?: "enviado" | "falhou" | "pulado";
   cliente_envio_erro?: string | null;
 };
+
+const CAMPOS_TRAVADOS_BOLETO = new Set(["cpf", "cliente", "valor"]);
+
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES_POR_ETAPA = 10;
