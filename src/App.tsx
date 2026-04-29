@@ -12,6 +12,7 @@ import DemandasList from "@/pages/DemandasList";
 import DemandaChat from "@/pages/DemandaChat";
 import LojaNovaDemanda from "@/pages/LojaNovaDemanda";
 import LojaMinhasDemandas from "@/pages/LojaMinhasDemandas";
+import LojaAgenda from "@/pages/LojaAgenda";
 import NotificacoesList from "@/pages/NotificacoesList";
 import Perfil from "@/pages/Perfil";
 import NotFound from "@/pages/NotFound.tsx";
