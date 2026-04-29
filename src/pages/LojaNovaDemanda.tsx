@@ -85,6 +85,10 @@ function validar(et: Etapa, raw: string): string | null {
     const d = v.replace(/\D/g, "");
     if (d.length !== 11 && d.length !== 14) return "CPF (11) ou CNPJ (14)";
   }
+  if (et.campo === "cliente_whatsapp") {
+    const d = v.replace(/\D/g, "");
+    if (d.length < 10 || d.length > 13) return "Informe DDD + número (10–13 dígitos)";
+  }
   if (et.tipo_input === "texto") {
     if (val.min_length != null && v.length < val.min_length) return `Mínimo ${val.min_length} caracteres`;
     if (val.max_length != null && v.length > val.max_length) return `Máximo ${val.max_length} caracteres`;
