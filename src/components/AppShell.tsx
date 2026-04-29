@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, ClipboardList, FilePlus2, Inbox, MessageSquare, User } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
