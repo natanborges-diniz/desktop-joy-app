@@ -400,8 +400,24 @@ export default function LojaNovaDemanda() {
 
   async function enviar() {
     if (!fluxoAtivo) return;
+
+    // Boleto: precisa ter consulta_cpf aprovada selecionada
+    if (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada) {
+      toast.error("Selecione uma Consulta de CPF aprovada");
+      return;
+    }
+
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
+      // Pula validação de campos travados pelo CPF aprovado (vêm prontos do servidor)
+      if (
+        fluxoAtivo.chave === "gerar_boleto" &&
+        consultaCpfSelecionada &&
+        CAMPOS_TRAVADOS_BOLETO.has(et.campo)
+      ) {
+        novosErros[et.campo] = null;
+        continue;
+      }
       if (tipoEfetivo(et) === "imagem") {
         if (et.obrigatorio !== false && !(anexos[et.campo]?.length))
           novosErros[et.campo] = "Anexe ao menos um arquivo";
@@ -414,9 +430,13 @@ export default function LojaNovaDemanda() {
     if (Object.values(novosErros).some(Boolean)) return;
 
     setEnviando(true);
+    const dadosEnvio: Record<string, string> = { ...dados };
+    if (fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada) {
+      dadosEnvio.consulta_cpf_id = consultaCpfSelecionada;
+    }
     const payload: Record<string, unknown> = {
       fluxo_chave: fluxoAtivo.chave,
-      dados,
+      dados: dadosEnvio,
       anexos: Object.values(anexos).flat(),
     };
     if (lojaNome) {
