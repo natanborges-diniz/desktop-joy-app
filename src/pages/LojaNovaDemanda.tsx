@@ -5,8 +5,10 @@ import {
   Check,
   ChevronRight,
   Copy,
+  Camera,
   Image as ImageIcon,
   Loader2,
+  Paperclip,
   Send,
 } from "lucide-react";
 import { supabase, SOLICITACAO_ANEXOS_BUCKET } from "@/integrations/supabase/client";
@@ -374,36 +376,78 @@ export default function LojaNovaDemanda() {
                       {label}
                     </label>
                     {et.tipo_input === "imagem" ? (
-                      <div className="flex items-center gap-3">
+                      <div className="space-y-2">
                         <input
-                          ref={(el) => (fileRefs.current[et.campo] = el)}
+                          ref={(el) => (fileRefs.current[`${et.campo}__camera`] = el)}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) void uploadImagem(et, f);
+                            e.target.value = "";
+                          }}
+                        />
+                        <input
+                          ref={(el) => (fileRefs.current[`${et.campo}__file`] = el)}
                           type="file"
                           accept="image/*"
                           className="hidden"
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             if (f) void uploadImagem(et, f);
+                            e.target.value = "";
                           }}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => fileRefs.current[et.campo]?.click()}
-                        >
-                          <ImageIcon className="mr-2 h-4 w-4" />
-                          {anexos[et.campo] ? "Trocar imagem" : "Enviar imagem"}
-                        </Button>
-                        {anexos[et.campo] && (
-                          <a
-                            href={anexos[et.campo].url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="truncate text-xs text-primary underline"
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileRefs.current[`${et.campo}__camera`]?.click()}
                           >
-                            {anexos[et.campo].nome}
-                          </a>
+                            <Camera className="mr-2 h-4 w-4" />
+                            {anexos[et.campo] ? "Tirar outra foto" : "Tirar foto"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileRefs.current[`${et.campo}__file`]?.click()}
+                          >
+                            <Paperclip className="mr-2 h-4 w-4" />
+                            {anexos[et.campo] ? "Trocar anexo" : "Anexar imagem"}
+                          </Button>
+                        </div>
+                        {anexos[et.campo] && (
+                          <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2">
+                            <a
+                              href={anexos[et.campo].url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block"
+                            >
+                              {anexos[et.campo].mime_type?.startsWith("image/") ? (
+                                <img
+                                  src={anexos[et.campo].url}
+                                  alt={anexos[et.campo].nome}
+                                  className="h-14 w-14 rounded object-cover"
+                                />
+                              ) : (
+                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                              )}
+                            </a>
+                            <a
+                              href={anexos[et.campo].url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="truncate text-xs text-primary underline"
+                            >
+                              {anexos[et.campo].nome}
+                            </a>
+                          </div>
                         )}
                       </div>
+
                     ) : et.tipo_input === "texto" && (et.validacao?.max_length ?? 0) > 120 ? (
                       <Textarea
                         rows={4}
