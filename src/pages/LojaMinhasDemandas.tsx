@@ -19,7 +19,10 @@ type Solicitacao = {
   status: string | null;
   created_at: string;
   pipeline_coluna_id: string | null;
-  pipeline_colunas?: { nome: string | null; cor: string | null } | null;
+  pipeline_colunas?:
+    | { nome: string | null; cor: string | null }
+    | { nome: string | null; cor: string | null }[]
+    | null;
 };
 
 type Comentario = {
