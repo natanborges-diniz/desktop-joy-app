@@ -56,6 +56,8 @@ type Resultado = {
   tipo: string;
   url?: string;
   payment_link_id?: string;
+  cliente_envio_status?: "enviado" | "falhou" | "pulado";
+  cliente_envio_erro?: string | null;
 };
 
 function validar(et: Etapa, raw: string): string | null {
