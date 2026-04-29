@@ -134,15 +134,21 @@ export default function LojaMinhasDemandas() {
                       <h2 className="mt-1 truncate font-semibold text-foreground">
                         {s.assunto ?? "Sem assunto"}
                       </h2>
-                      {s.pipeline_colunas?.nome && (
-                        <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full"
-                            style={{ backgroundColor: s.pipeline_colunas.cor ?? "#94a3b8" }}
-                          />
-                          {s.pipeline_colunas.nome}
-                        </p>
-                      )}
+                      {(() => {
+                        const col = Array.isArray(s.pipeline_colunas)
+                          ? s.pipeline_colunas[0]
+                          : s.pipeline_colunas;
+                        if (!col?.nome) return null;
+                        return (
+                          <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <span
+                              className="inline-block h-2 w-2 rounded-full"
+                              style={{ backgroundColor: col.cor ?? "#94a3b8" }}
+                            />
+                            {col.nome}
+                          </p>
+                        );
+                      })()}
                     </div>
                     <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
                       {s.status ?? "—"}
