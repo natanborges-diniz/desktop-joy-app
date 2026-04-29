@@ -5,8 +5,10 @@ import {
   Check,
   ChevronRight,
   Copy,
+  Camera,
   Image as ImageIcon,
   Loader2,
+  Paperclip,
   Send,
 } from "lucide-react";
 import { supabase, SOLICITACAO_ANEXOS_BUCKET } from "@/integrations/supabase/client";
