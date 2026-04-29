@@ -270,12 +270,15 @@ export default function LojaNovaDemanda() {
 
   async function carregarCpfsAprovados(loja: string) {
     setCarregandoCpfs(true);
+    const desdeIso = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString();
     const { data, error } = await supabase
       .from("solicitacoes")
-      .select("id,protocolo,cpf,cliente,valor,created_at,metadata")
-      .eq("fluxo_chave", "consulta_cpf")
-      .eq("status", "aprovada")
-      .eq("loja_nome", loja)
+      .select("id,protocolo,created_at,metadata")
+      .eq("tipo", "consulta_cpf")
+      .eq("metadata->>resultado_consulta", "aprovado")
+      .eq("metadata->>loja_nome", loja)
+      .is("metadata->>boleto_solicitacao_id", null)
+      .gte("created_at", desdeIso)
       .order("created_at", { ascending: false })
       .limit(50);
     setCarregandoCpfs(false);
@@ -284,19 +287,18 @@ export default function LojaNovaDemanda() {
       setCpfsAprovados([]);
       return;
     }
-    const filtradas = (data ?? []).filter((r: any) => {
-      const meta = r?.metadata ?? {};
-      return !meta?.boleto_solicitacao_id;
-    });
     setCpfsAprovados(
-      filtradas.map((r: any) => ({
-        id: r.id,
-        protocolo: r.protocolo ?? null,
-        cpf: r.cpf ?? null,
-        cliente: r.cliente ?? null,
-        valor: r.valor ?? null,
-        created_at: r.created_at,
-      })),
+      (data ?? []).map((r: any) => {
+        const m = r?.metadata ?? {};
+        return {
+          id: r.id,
+          protocolo: r.protocolo ?? null,
+          cpf: m.cpf ?? null,
+          cliente: m.cliente ?? m.nome_cliente ?? null,
+          valor: m.valor_aprovado ?? m.valor ?? null,
+          created_at: r.created_at,
+        };
+      }),
     );
   }
 
