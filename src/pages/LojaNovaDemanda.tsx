@@ -400,6 +400,21 @@ export default function LojaNovaDemanda() {
                           setDados((d) => ({ ...d, [et.campo]: e.target.value }))
                         }
                       />
+                    ) : et.campo === "cliente_whatsapp" ? (
+                      <div className="space-y-1">
+                        <Input
+                          type="tel"
+                          inputMode="tel"
+                          placeholder="(11) 91234-5678"
+                          value={dados[et.campo] ?? ""}
+                          onChange={(e) =>
+                            setDados((d) => ({ ...d, [et.campo]: e.target.value }))
+                          }
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          DDD + número (10 a 13 dígitos). O link será enviado por WhatsApp.
+                        </p>
+                      </div>
                     ) : (
                       <Input
                         inputMode={
