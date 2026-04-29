@@ -84,6 +84,25 @@ type Resultado = {
 
 const CAMPOS_TRAVADOS_BOLETO = new Set(["cpf", "cliente", "valor"]);
 
+function mascararCpf(raw: string | null | undefined): string {
+  const d = String(raw ?? "").replace(/\D/g, "");
+  if (d.length !== 11) return raw ?? "";
+  return `${d.slice(0, 3)}.***.***-${d.slice(9)}`;
+}
+
+function formatarBRL(v: number | string | null | undefined): string {
+  if (v == null || v === "") return "—";
+  const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatarDataCurta(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES_POR_ETAPA = 10;
