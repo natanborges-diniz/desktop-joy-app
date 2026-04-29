@@ -256,6 +256,7 @@ export default function LojaNovaDemanda() {
   }, [fluxoAtivo, lojaNome, profileNome]);
 
 
+  function voltar() {
     if (resultado) {
       setResultado(null);
       setFluxoAtivo(null);
