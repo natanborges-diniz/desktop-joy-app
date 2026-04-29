@@ -925,14 +925,23 @@ export default function LojaNovaDemanda() {
                 );
               })}
 
-              <Button className="w-full" onClick={enviar} disabled={enviando}>
-                {enviando ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                Enviar solicitação
-              </Button>
+              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) && (
+                <Button
+                  className="w-full"
+                  onClick={enviar}
+                  disabled={
+                    enviando ||
+                    (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada)
+                  }
+                >
+                  {enviando ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Enviar solicitação
+                </Button>
+              )}
             </div>
           ) : filhos.length === 0 ? (
             <p className="mt-10 text-center text-sm text-muted-foreground">
