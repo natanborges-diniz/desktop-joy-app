@@ -80,7 +80,10 @@ const MAX_FILES_POR_ETAPA = 10;
 // configurado no JSON, mas o nome do campo deixa claro a intenção. Detectamos
 // pelo nome para que o wizard renderize o controle certo automaticamente.
 const CAMPOS_IMAGEM = /(anexo|comprovante|foto|imagem|nota_fiscal|cupom|recibo|documento_foto|print)/i;
-const CAMPOS_LOJA = /^(loja|nome_loja|loja_nome|filial)$/i;
+// Reconhece variações: "loja", "nome_loja", "loja_setor", "loja_ou_setor",
+// "filial", "unidade", "setor", etc. — usado por fluxos legados que não
+// declaram `tipo_input: "loja"` no JSON.
+const CAMPOS_LOJA = /(^|_)(loja|filial|unidade|setor)(_|$)/i;
 
 function tipoEfetivo(et: Etapa): EtapaInput {
   if (et.tipo_input === "imagem" || et.tipo_input === "loja" || et.tipo_input === "texto_prefilled")
