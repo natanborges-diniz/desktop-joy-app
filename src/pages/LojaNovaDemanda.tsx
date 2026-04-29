@@ -566,7 +566,7 @@ export default function LojaNovaDemanda() {
                           </ul>
                         )}
                       </div>
-                    ) : et.tipo_input === "loja" ? (
+                    ) : tef === "loja" ? (
                       lojaTravada ? (
                         <div className="flex items-center gap-2">
                           <Input value={dados[et.campo] ?? lojaNome ?? ""} readOnly className="flex-1" />
