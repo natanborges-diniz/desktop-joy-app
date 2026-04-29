@@ -139,11 +139,15 @@ export default function LojaNovaDemanda() {
       setTrilha((t) => [...t, o]);
       return;
     }
+    if (o.tipo !== "fluxo" || !o.fluxo) {
+      toast.error("Fluxo indisponível");
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase
       .from("bot_fluxos")
       .select("id,chave,nome,descricao,etapas")
-      .eq("chave", o.chave)
+      .eq("chave", o.fluxo ?? o.chave)
       .eq("ativo", true)
       .maybeSingle();
     setLoading(false);
