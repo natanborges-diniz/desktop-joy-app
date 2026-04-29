@@ -79,17 +79,20 @@ const MAX_FILES_POR_ETAPA = 10;
 // Heurística: alguns fluxos legados não têm `tipo_input: "imagem"` ou `"loja"`
 // configurado no JSON, mas o nome do campo deixa claro a intenção. Detectamos
 // pelo nome para que o wizard renderize o controle certo automaticamente.
-const CAMPOS_IMAGEM = /(anexo|comprovante|foto|imagem|nota_fiscal|cupom|recibo|documento_foto|print)/i;
-// Reconhece variações: "loja", "nome_loja", "loja_setor", "loja_ou_setor",
-// "filial", "unidade", "setor", etc. — usado por fluxos legados que não
-// declaram `tipo_input: "loja"` no JSON.
-const CAMPOS_LOJA = /(^|_)(loja|filial|unidade|setor)(_|$)/i;
+const CAMPOS_IMAGEM = /(anexo|comprovante|foto|imagem|nota_fiscal|cupom|recibo|documento_foto|print|arquivo)/i;
+// Reconhece qualquer campo que contenha "loja", "filial", "unidade" ou "setor"
+// como substring — cobre variações como "loja_da_despesa", "qual_loja", "de_qual_loja", etc.
+const CAMPOS_LOJA = /(loja|filial|unidade|setor)/i;
+// Mensagens (label/mensagem) que indicam pergunta sobre loja, mesmo com campo genérico
+const MSG_LOJA = /(qual\s+(a\s+)?loja|de\s+que\s+loja|de\s+qual\s+loja|loja\s+(da|do|de))/i;
 
 function tipoEfetivo(et: Etapa): EtapaInput {
   if (et.tipo_input === "imagem" || et.tipo_input === "loja" || et.tipo_input === "texto_prefilled")
     return et.tipo_input;
   if (CAMPOS_IMAGEM.test(et.campo)) return "imagem";
   if (CAMPOS_LOJA.test(et.campo)) return "loja";
+  const txt = `${et.label ?? ""} ${et.mensagem ?? ""}`;
+  if (MSG_LOJA.test(txt)) return "loja";
   return et.tipo_input;
 }
 
