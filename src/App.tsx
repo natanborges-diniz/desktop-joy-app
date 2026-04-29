@@ -36,6 +36,9 @@ const App = () => (
             <Route path="/" element={<ConversasList />} />
             <Route path="/conversas/:otherId" element={<ConversaDetail />} />
             <Route path="/demandas" element={<DemandasList />} />
+            <Route path="/demandas/:id" element={<DemandaChat />} />
+            <Route path="/nova-demanda" element={<LojaNovaDemanda />} />
+            <Route path="/minhas-demandas" element={<LojaMinhasDemandas />} />
             <Route path="/notificacoes" element={<NotificacoesList />} />
             <Route path="/perfil" element={<Perfil />} />
           </Route>
