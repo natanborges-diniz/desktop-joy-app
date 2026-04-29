@@ -6,14 +6,17 @@ import {
   ChevronRight,
   Copy,
   Camera,
+  FileText,
   Image as ImageIcon,
   Loader2,
   Paperclip,
   Send,
+  X,
 } from "lucide-react";
 import { supabase, SOLICITACAO_ANEXOS_BUCKET } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useLojasAtivas } from "@/hooks/useLojasAtivas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +33,15 @@ type MenuOpcao = {
   ordem: number;
 };
 
-type EtapaInput = "texto" | "decimal" | "inteiro" | "cpf" | "documento" | "imagem";
+type EtapaInput =
+  | "texto"
+  | "decimal"
+  | "inteiro"
+  | "cpf"
+  | "documento"
+  | "imagem"
+  | "texto_prefilled"
+  | "loja";
 type Etapa = {
   campo: string;
   mensagem?: string;
@@ -62,8 +73,15 @@ type Resultado = {
   cliente_envio_erro?: string | null;
 };
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILES_POR_ETAPA = 10;
+
 function validar(et: Etapa, raw: string): string | null {
   const v = (raw ?? "").trim();
+  if (et.tipo_input === "loja") {
+    if (et.obrigatorio !== false && !v) return "Selecione uma loja";
+    return null;
+  }
   if (et.obrigatorio !== false && !v) return "Campo obrigatório";
   if (!v) return null;
   const val = et.validacao ?? {};
@@ -91,7 +109,7 @@ function validar(et: Etapa, raw: string): string | null {
     const d = v.replace(/\D/g, "");
     if (d.length < 10 || d.length > 13) return "Informe DDD + número (10–13 dígitos)";
   }
-  if (et.tipo_input === "texto") {
+  if (et.tipo_input === "texto" || et.tipo_input === "texto_prefilled") {
     if (val.min_length != null && v.length < val.min_length) return `Mínimo ${val.min_length} caracteres`;
     if (val.max_length != null && v.length > val.max_length) return `Máximo ${val.max_length} caracteres`;
   }
@@ -101,17 +119,19 @@ function validar(et: Etapa, raw: string): string | null {
 export default function LojaNovaDemanda() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lojaNome, codEmpresa, isLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome, codEmpresa, tipoUsuario, isLoja, loading: ctxLoading } = useLojaContext();
+  const { data: lojasAtivas = [] } = useLojasAtivas();
 
   const [opcoes, setOpcoes] = useState<MenuOpcao[]>([]);
   const [trilha, setTrilha] = useState<MenuOpcao[]>([]);
   const [fluxoAtivo, setFluxoAtivo] = useState<Fluxo | null>(null);
   const [dados, setDados] = useState<Record<string, string>>({});
-  const [anexos, setAnexos] = useState<Record<string, Anexo>>({});
+  const [anexos, setAnexos] = useState<Record<string, Anexo[]>>({});
   const [erros, setErros] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [profileNome, setProfileNome] = useState<string>("");
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
@@ -132,6 +152,25 @@ export default function LojaNovaDemanda() {
       alive = false;
     };
   }, []);
+
+  // Resolve nome do solicitante a partir do profile (vazio se for pessoa final)
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!alive) return;
+      const n = (data as { nome: string | null } | null)?.nome ?? "";
+      if (n) setProfileNome(n);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user]);
 
   const nivelAtual = trilha[trilha.length - 1] ?? null;
   const filhos = useMemo(
@@ -163,8 +202,19 @@ export default function LojaNovaDemanda() {
       toast.error("Fluxo indisponível");
       return;
     }
-    setFluxoAtivo(data as Fluxo);
-    setDados({});
+    const fluxo = data as Fluxo;
+    // Pré-preenche etapas texto_prefilled e loja
+    const initial: Record<string, string> = {};
+    for (const et of fluxo.etapas ?? []) {
+      if (et.tipo_input === "texto_prefilled" && profileNome) {
+        initial[et.campo] = profileNome;
+      }
+      if (et.tipo_input === "loja" && lojaNome) {
+        initial[et.campo] = lojaNome;
+      }
+    }
+    setFluxoAtivo(fluxo);
+    setDados(initial);
     setAnexos({});
     setErros({});
   }
@@ -182,33 +232,58 @@ export default function LojaNovaDemanda() {
     setTrilha((t) => t.slice(0, -1));
   }
 
-  async function uploadImagem(et: Etapa, file: File) {
+  async function uploadAnexo(et: Etapa, file: File) {
     if (!user) return;
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const path = `solicitacoes/${user.id}/${Date.now()}-${et.campo}.${ext}`;
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`"${file.name}" excede 10 MB`);
+      return;
+    }
+    const atuais = anexos[et.campo] ?? [];
+    if (atuais.length >= MAX_FILES_POR_ETAPA) {
+      toast.error(`Máximo ${MAX_FILES_POR_ETAPA} arquivos por campo`);
+      return;
+    }
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+    const path = `solicitacoes/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
       .upload(path, file, { contentType: file.type, upsert: false });
     if (error) {
-      toast.error("Falha ao enviar imagem");
+      toast.error(`Falha ao enviar "${file.name}"`);
       return;
     }
     const { data } = supabase.storage.from(SOLICITACAO_ANEXOS_BUCKET).getPublicUrl(path);
     setAnexos((a) => ({
       ...a,
-      [et.campo]: { url: data.publicUrl, mime_type: file.type, nome: file.name },
+      [et.campo]: [
+        ...(a[et.campo] ?? []),
+        { url: data.publicUrl, mime_type: file.type, nome: file.name },
+      ],
     }));
-    setDados((d) => ({ ...d, [et.campo]: data.publicUrl }));
     setErros((e) => ({ ...e, [et.campo]: null }));
+  }
+
+  async function uploadVarios(et: Etapa, files: FileList | File[]) {
+    for (const f of Array.from(files)) {
+      await uploadAnexo(et, f);
+    }
+  }
+
+  function removerAnexo(campo: string, idx: number) {
+    setAnexos((a) => {
+      const arr = (a[campo] ?? []).slice();
+      arr.splice(idx, 1);
+      return { ...a, [campo]: arr };
+    });
   }
 
   async function enviar() {
     if (!fluxoAtivo) return;
-    // valida tudo
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
       if (et.tipo_input === "imagem") {
-        if (et.obrigatorio !== false && !anexos[et.campo]) novosErros[et.campo] = "Anexe uma imagem";
+        if (et.obrigatorio !== false && !(anexos[et.campo]?.length))
+          novosErros[et.campo] = "Anexe ao menos um arquivo";
         else novosErros[et.campo] = null;
       } else {
         novosErros[et.campo] = validar(et, dados[et.campo] ?? "");
@@ -221,7 +296,7 @@ export default function LojaNovaDemanda() {
     const payload: Record<string, unknown> = {
       fluxo_chave: fluxoAtivo.chave,
       dados,
-      anexos: Object.values(anexos),
+      anexos: Object.values(anexos).flat(),
     };
     if (lojaNome) {
       payload.loja = { nome_loja: lojaNome, cod_empresa: codEmpresa };
@@ -245,7 +320,6 @@ export default function LojaNovaDemanda() {
     );
   }
 
-  // header dinâmico
   const titulo = resultado
     ? "Solicitação enviada"
     : fluxoAtivo
@@ -253,6 +327,8 @@ export default function LojaNovaDemanda() {
       : nivelAtual
         ? `${nivelAtual.emoji ?? ""} ${nivelAtual.titulo}`
         : "Nova demanda";
+
+  const lojaTravada = !!lojaNome && (tipoUsuario === "loja" || tipoUsuario === "colaborador");
 
   return (
     <div className="flex h-full flex-col">
@@ -329,20 +405,21 @@ export default function LojaNovaDemanda() {
                       >
                         Compartilhar
                       </Button>
-              )}
-
-              {resultado.payment_link_id && resultado.cliente_envio_status === "enviado" && (
-                <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
-                  ✅ Link enviado por WhatsApp para o cliente.
-                </div>
-              )}
-              {resultado.payment_link_id && resultado.cliente_envio_status === "falhou" && (
-                <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
-                  ⚠️ Link gerado, mas não foi possível enviar ao cliente automaticamente
-                  {resultado.cliente_envio_erro ? ` (${resultado.cliente_envio_erro})` : ""}. Copie e envie manualmente.
-                </div>
-              )}
+                    )}
                   </div>
+
+                  {resultado.payment_link_id && resultado.cliente_envio_status === "enviado" && (
+                    <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+                      ✅ Link enviado por WhatsApp para o cliente.
+                    </div>
+                  )}
+                  {resultado.payment_link_id && resultado.cliente_envio_status === "falhou" && (
+                    <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                      ⚠️ Link gerado, mas não foi possível enviar ao cliente automaticamente
+                      {resultado.cliente_envio_erro ? ` (${resultado.cliente_envio_erro})` : ""}.
+                      Copie e envie manualmente.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -375,6 +452,7 @@ export default function LojaNovaDemanda() {
                     <label className="block whitespace-pre-wrap text-sm font-medium text-foreground">
                       {label}
                     </label>
+
                     {et.tipo_input === "imagem" ? (
                       <div className="space-y-2">
                         <input
@@ -385,18 +463,19 @@ export default function LojaNovaDemanda() {
                           className="hidden"
                           onChange={(e) => {
                             const f = e.target.files?.[0];
-                            if (f) void uploadImagem(et, f);
+                            if (f) void uploadAnexo(et, f);
                             e.target.value = "";
                           }}
                         />
                         <input
                           ref={(el) => (fileRefs.current[`${et.campo}__file`] = el)}
                           type="file"
-                          accept="image/*"
+                          accept="image/*,application/pdf"
+                          multiple
                           className="hidden"
                           onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) void uploadImagem(et, f);
+                            const fs = e.target.files;
+                            if (fs && fs.length) void uploadVarios(et, fs);
                             e.target.value = "";
                           }}
                         />
@@ -407,7 +486,7 @@ export default function LojaNovaDemanda() {
                             onClick={() => fileRefs.current[`${et.campo}__camera`]?.click()}
                           >
                             <Camera className="mr-2 h-4 w-4" />
-                            {anexos[et.campo] ? "Tirar outra foto" : "Tirar foto"}
+                            {anexos[et.campo]?.length ? "Tirar outra foto" : "Tirar foto"}
                           </Button>
                           <Button
                             type="button"
@@ -415,39 +494,93 @@ export default function LojaNovaDemanda() {
                             onClick={() => fileRefs.current[`${et.campo}__file`]?.click()}
                           >
                             <Paperclip className="mr-2 h-4 w-4" />
-                            {anexos[et.campo] ? "Trocar anexo" : "Anexar imagem"}
+                            Anexar arquivo
                           </Button>
+                          <span className="text-[11px] text-muted-foreground">
+                            Imagens ou PDF · até 10 MB cada
+                          </span>
                         </div>
-                        {anexos[et.campo] && (
-                          <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2">
-                            <a
-                              href={anexos[et.campo].url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block"
-                            >
-                              {anexos[et.campo].mime_type?.startsWith("image/") ? (
-                                <img
-                                  src={anexos[et.campo].url}
-                                  alt={anexos[et.campo].nome}
-                                  className="h-14 w-14 rounded object-cover"
-                                />
-                              ) : (
-                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                              )}
-                            </a>
-                            <a
-                              href={anexos[et.campo].url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="truncate text-xs text-primary underline"
-                            >
-                              {anexos[et.campo].nome}
-                            </a>
-                          </div>
+
+                        {!!anexos[et.campo]?.length && (
+                          <ul className="space-y-1.5">
+                            {anexos[et.campo].map((ax, idx) => {
+                              const isImg = ax.mime_type?.startsWith("image/");
+                              const isPdf = ax.mime_type === "application/pdf";
+                              return (
+                                <li
+                                  key={`${ax.url}-${idx}`}
+                                  className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2"
+                                >
+                                  <a href={ax.url} target="_blank" rel="noreferrer" className="block">
+                                    {isImg ? (
+                                      <img
+                                        src={ax.url}
+                                        alt={ax.nome}
+                                        className="h-12 w-12 rounded object-cover"
+                                      />
+                                    ) : isPdf ? (
+                                      <div className="flex h-12 w-12 items-center justify-center rounded bg-background">
+                                        <FileText className="h-6 w-6 text-primary" />
+                                      </div>
+                                    ) : (
+                                      <div className="flex h-12 w-12 items-center justify-center rounded bg-background">
+                                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                      </div>
+                                    )}
+                                  </a>
+                                  <a
+                                    href={ax.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-1 truncate text-xs text-primary underline"
+                                  >
+                                    {ax.nome}
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => removerAnexo(et.campo, idx)}
+                                    className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                    aria-label="Remover"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
                         )}
                       </div>
-
+                    ) : et.tipo_input === "loja" ? (
+                      lojaTravada ? (
+                        <div className="flex items-center gap-2">
+                          <Input value={dados[et.campo] ?? lojaNome ?? ""} readOnly className="flex-1" />
+                          <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                            minha loja
+                          </span>
+                        </div>
+                      ) : (
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+                          value={dados[et.campo] ?? ""}
+                          onChange={(e) =>
+                            setDados((d) => ({ ...d, [et.campo]: e.target.value }))
+                          }
+                        >
+                          <option value="">Selecione uma loja…</option>
+                          {lojasAtivas.map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    ) : et.tipo_input === "texto_prefilled" ? (
+                      <Input
+                        value={dados[et.campo] ?? ""}
+                        onChange={(e) =>
+                          setDados((d) => ({ ...d, [et.campo]: e.target.value }))
+                        }
+                      />
                     ) : et.tipo_input === "texto" && (et.validacao?.max_length ?? 0) > 120 ? (
                       <Textarea
                         rows={4}
