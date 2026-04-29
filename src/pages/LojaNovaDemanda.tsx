@@ -296,7 +296,7 @@ export default function LojaNovaDemanda() {
     if (!fluxoAtivo) return;
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
-      if (et.tipo_input === "imagem") {
+      if (tipoEfetivo(et) === "imagem") {
         if (et.obrigatorio !== false && !(anexos[et.campo]?.length))
           novosErros[et.campo] = "Anexe ao menos um arquivo";
         else novosErros[et.campo] = null;
