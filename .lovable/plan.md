@@ -1,41 +1,23 @@
-## Objetivo
+# Verificação e atualização da marcação de leitura no DemandaChat
 
-Permitir que o `Login.tsx` reconheça links de acesso enviados pelo Lovable Connect & Flow no formato:
+## Verificação
+Conferi `src/pages/DemandaChat.tsx` linhas 75–85: a implementação atual **só** atualiza `demandas_loja` (campos `visto_pela_loja_at` / `visto_por_loja_user_id`). O segundo update — em `demanda_mensagens` — que é o que o `DemandaThreadView.tsx` do Atrium lê para renderizar o `CheckCheck` (✓✓) **ainda não foi aplicado**. A dependência `msgs.length` também está faltando.
 
-```
-/login?magic_token=...&email=...
-```
+## Mudança a aplicar
 
-Quando esses parâmetros estiverem presentes na URL, o Messenger deve validar o token via `supabase.auth.verifyOtp` e logar o usuário automaticamente.
+Substituir o bloco das linhas 75–85 em `src/pages/DemandaChat.tsx` por:
 
-## Mudanças
+1. Calcular `nowIso` uma vez.
+2. Update em `demandas_loja` (mantém compatibilidade da UI da loja).
+3. Update em `demanda_mensagens` filtrado por:
+   - `demanda_id = id`
+   - `direcao = 'operador_para_loja'`
+   - `visto_pela_loja_at IS NULL`
+   
+   setando `visto_pela_loja_at = nowIso` e `visto_por_loja_user_id = user.id`.
+4. Trocar deps do `useEffect` para `[id, user?.id, msgs.length]` para re-rodar quando chegar uma mensagem nova do operador enquanto o chat estiver aberto.
 
-### `src/pages/Login.tsx`
+Nenhum outro trecho do arquivo é alterado. Não há mudanças de schema, RLS ou outras telas.
 
-1. **Imports adicionais** (no topo):
-   - `useEffect` de `react`
-   - `useSearchParams` de `react-router-dom`
-   - `supabase` de `@/integrations/supabase/client`
-
-2. **Dentro do componente `Login`**, logo após `const [submitting, setSubmitting] = useState(false);`:
-   - Adicionar `const [searchParams, setSearchParams] = useSearchParams();`
-   - Adicionar um `useEffect` (executa uma única vez no mount) que:
-     - Lê `magic_token` e `email` da query string
-     - Se ambos existirem, chama `supabase.auth.verifyOtp({ email, token, type: "magiclink" })`
-     - Em caso de sucesso: toast de boas-vindas, limpa a URL via `setSearchParams({}, { replace: true })` para não vazar o token, navega para `/`
-     - Em caso de erro: toast "Link de acesso inválido ou expirado" e log no console
-     - Define `setSubmitting(true/false)` durante o processo para desabilitar o botão e mostrar spinner
-
-3. **Cuidado com o early-return**: o bloco `if (!authLoading && session) return <Navigate.../>` está antes do `useEffect`. Como hooks não podem ficar abaixo de returns condicionais, o `useEffect` precisa ser declarado **antes** desse `if` (junto com o `useSearchParams`). Vou reorganizar mantendo a regra dos hooks.
-
-## Detalhes técnicos
-
-- O fluxo `verifyOtp` com `type: "magiclink"` cria a sessão automaticamente; o `AuthProvider` (já com `onAuthStateChange`) detectará e popula `session`/`profile`. O `navigate("/")` garante a saída da tela de login.
-- A limpeza dos params via `setSearchParams({}, { replace: true })` evita que o token fique no histórico do navegador.
-- Como o `useEffect` roda no mount com deps vazias, vou suprimir o warning do eslint-react-hooks com um comentário, mantendo o comportamento "uma única vez" pedido pelo snippet.
-- Nenhuma mudança em `AuthProvider`, rotas ou backend é necessária — o token é emitido pelo projeto Lovable Connect & Flow e validado contra o mesmo Supabase compartilhado (`kvggebtnqmxydtwaumqz`).
-
-## Fora do escopo
-
-- Não criar tela de signup nem fluxo de recuperação de senha (assuntos anteriores ainda em aberto).
-- Não alterar `.env` nem o `client.ts`.
+## Resultado esperado
+Ao abrir uma demanda (e a cada nova mensagem recebida do operador com o chat aberto), todas as mensagens `operador_para_loja` ainda não vistas passam a ter `visto_pela_loja_at` preenchido — fazendo o ✓✓ aparecer no painel do operador no Atrium.

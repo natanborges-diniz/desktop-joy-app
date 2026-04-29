@@ -72,17 +72,29 @@ export default function DemandaChat() {
     void load();
   }, [id]);
 
-  // Marca thread como visto pela loja (✓✓ no painel do operador)
+  // Marca mensagens do operador como vistas pela loja (✓✓ no painel do operador)
   useEffect(() => {
     if (!id || !user) return;
+    const nowIso = new Date().toISOString();
+    // 1) Atualiza demanda (compat com versão antiga + UI loja)
     void supabase
       .from("demandas_loja")
       .update({
-        visto_pela_loja_at: new Date().toISOString(),
+        visto_pela_loja_at: nowIso,
         visto_por_loja_user_id: user.id,
       })
       .eq("id", id);
-  }, [id, user?.id]);
+    // 2) Marca cada mensagem do operador ainda não vista (chave do ✓✓ no Atrium)
+    void supabase
+      .from("demanda_mensagens")
+      .update({
+        visto_pela_loja_at: nowIso,
+        visto_por_loja_user_id: user.id,
+      })
+      .eq("demanda_id", id)
+      .eq("direcao", "operador_para_loja")
+      .is("visto_pela_loja_at", null);
+  }, [id, user?.id, msgs.length]); // re-roda quando chega msg nova do operador
 
   useEffect(() => {
     if (!id) return;
