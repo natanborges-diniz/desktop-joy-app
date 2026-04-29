@@ -323,14 +323,29 @@ export default function LojaNovaDemanda() {
   }, [fluxoAtivo, lojaNome, profileNome]);
 
 
+  function escolherCpfAprovado(c: CpfAprovado) {
+    setConsultaCpfSelecionada(c.id);
+    setDados((d) => ({
+      ...d,
+      cpf: c.cpf ?? d.cpf ?? "",
+      cliente: c.cliente ?? d.cliente ?? "",
+      valor: c.valor != null ? String(c.valor) : (d.valor ?? ""),
+    }));
+    setErros((e) => ({ ...e, cpf: null, cliente: null, valor: null }));
+  }
+
   function voltar() {
     if (resultado) {
       setResultado(null);
       setFluxoAtivo(null);
+      setConsultaCpfSelecionada(null);
+      setCpfsAprovados(null);
       return;
     }
     if (fluxoAtivo) {
       setFluxoAtivo(null);
+      setConsultaCpfSelecionada(null);
+      setCpfsAprovados(null);
       return;
     }
     setTrilha((t) => t.slice(0, -1));
