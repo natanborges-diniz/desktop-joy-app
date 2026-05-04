@@ -27,6 +27,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { showLocalNotification } from "@/lib/localNotify";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -169,7 +170,30 @@ export default function LojaAgenda() {
           table: "agendamentos",
           filter: `loja_nome=eq.${lojaNome}`,
         },
-        () => void load(),
+        (payload) => {
+          void load();
+          if (payload.eventType === "INSERT") {
+            const row = payload.new as {
+              id: string;
+              data_horario: string;
+              contato_id?: string;
+            };
+            const quando = (() => {
+              try {
+                return format(new Date(row.data_horario), "dd/MM HH:mm");
+              } catch {
+                return "";
+              }
+            })();
+            void showLocalNotification({
+              title: "Novo agendamento",
+              body: quando ? `Cliente agendado para ${quando}` : "Novo agendamento criado",
+              url: "/agenda",
+              tag: `ag-${row.id}`,
+              suppressWhenOnPathPrefixes: ["/agenda"],
+            });
+          }
+        },
       )
       .subscribe();
     return () => {
