@@ -5,6 +5,7 @@ import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 
 type NavItem = {
@@ -49,6 +50,7 @@ export default function AppShell() {
   const unread = useUnreadCount();
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
+  useNotificacoesRealtime();
   const { isLoja } = useLojaContext();
 
   const isHome = location.pathname === "/";
