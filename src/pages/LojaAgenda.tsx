@@ -537,6 +537,29 @@ function CardAgendamento({
             {STATUS_LABEL[a.status] ?? a.status}
           </span>
         </div>
+        {(() => {
+          const meta = a.metadata as { cliente_confirmou_at?: string } | null;
+          const confirmadoAt = meta?.cliente_confirmou_at;
+          const horaPassou = new Date(a.data_horario).getTime() < Date.now();
+          const ativo = !["compareceu", "no_show", "cancelado", "venda_fechada"].includes(
+            a.status,
+          );
+          if (a.status === "agendado" && !confirmadoAt) {
+            return (
+              <span className="mt-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                Aguardando confirmação
+              </span>
+            );
+          }
+          if (confirmadoAt && horaPassou && ativo) {
+            return (
+              <span className="mt-1 inline-block rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-700 dark:text-sky-300">
+                Aguardando confirmar comparecimento
+              </span>
+            );
+          }
+          return null;
+        })()}
         {a.contato?.telefone && (
           <p className="truncate text-xs text-muted-foreground">
             {formatPhone(a.contato.telefone)}
