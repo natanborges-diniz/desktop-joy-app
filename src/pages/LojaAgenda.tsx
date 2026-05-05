@@ -31,6 +31,7 @@ import { showLocalNotification } from "@/lib/localNotify";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
 
 type Agendamento = {
   id: string;
@@ -220,20 +221,6 @@ export default function LojaAgenda() {
 
   const selectedKey = format(selectedDay, "yyyy-MM-dd");
   const dayItems = view === "month" ? byDay.get(selectedKey) ?? [] : items;
-
-  async function confirmarPresenca(a: Agendamento) {
-    const { error } = await supabase
-      .from("agendamentos")
-      .update({
-        loja_confirmou_presenca: true,
-        status:
-          a.status === "agendado" || a.status === "lembrete_enviado" ? "compareceu" : a.status,
-      })
-      .eq("id", a.id);
-    if (error) return;
-    void load();
-    setAberto(null);
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -472,14 +459,38 @@ export default function LojaAgenda() {
                     ))}
                   </p>
                 )}
-                {!aberto.loja_confirmou_presenca &&
-                  aberto.status !== "compareceu" &&
-                  aberto.status !== "no_show" &&
-                  aberto.status !== "cancelado" && (
-                    <Button className="w-full" onClick={() => void confirmarPresenca(aberto)}>
-                      Marcar presença do cliente
-                    </Button>
-                  )}
+                {(() => {
+                  const confirmadoAt = (aberto.metadata as { cliente_confirmou_at?: string } | null)
+                    ?.cliente_confirmou_at;
+                  const horaPassou = new Date(aberto.data_horario).getTime() < Date.now();
+                  const ativo = !["compareceu", "no_show", "cancelado", "venda_fechada"].includes(
+                    aberto.status,
+                  );
+                  return (
+                    <>
+                      {aberto.status === "agendado" && !confirmadoAt && (
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                          Aguardando confirmação do cliente
+                        </span>
+                      )}
+                      {confirmadoAt && horaPassou && ativo && (
+                        <span className="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                          Aguardando você confirmar comparecimento
+                        </span>
+                      )}
+                      {ativo && (
+                        <AcaoAgendamentoButtons
+                          agendamentoId={aberto.id}
+                          size="default"
+                          onDone={() => {
+                            void load();
+                            setAberto(null);
+                          }}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </>
           )}
@@ -526,6 +537,29 @@ function CardAgendamento({
             {STATUS_LABEL[a.status] ?? a.status}
           </span>
         </div>
+        {(() => {
+          const meta = a.metadata as { cliente_confirmou_at?: string } | null;
+          const confirmadoAt = meta?.cliente_confirmou_at;
+          const horaPassou = new Date(a.data_horario).getTime() < Date.now();
+          const ativo = !["compareceu", "no_show", "cancelado", "venda_fechada"].includes(
+            a.status,
+          );
+          if (a.status === "agendado" && !confirmadoAt) {
+            return (
+              <span className="mt-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                Aguardando confirmação
+              </span>
+            );
+          }
+          if (confirmadoAt && horaPassou && ativo) {
+            return (
+              <span className="mt-1 inline-block rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-700 dark:text-sky-300">
+                Aguardando confirmar comparecimento
+              </span>
+            );
+          }
+          return null;
+        })()}
         {a.contato?.telefone && (
           <p className="truncate text-xs text-muted-foreground">
             {formatPhone(a.contato.telefone)}
