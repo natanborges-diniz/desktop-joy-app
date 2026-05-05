@@ -31,6 +31,7 @@ import { showLocalNotification } from "@/lib/localNotify";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
 
 type Agendamento = {
   id: string;
