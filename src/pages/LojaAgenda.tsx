@@ -473,14 +473,38 @@ export default function LojaAgenda() {
                     ))}
                   </p>
                 )}
-                {!aberto.loja_confirmou_presenca &&
-                  aberto.status !== "compareceu" &&
-                  aberto.status !== "no_show" &&
-                  aberto.status !== "cancelado" && (
-                    <Button className="w-full" onClick={() => void confirmarPresenca(aberto)}>
-                      Marcar presença do cliente
-                    </Button>
-                  )}
+                {(() => {
+                  const confirmadoAt = (aberto.metadata as { cliente_confirmou_at?: string } | null)
+                    ?.cliente_confirmou_at;
+                  const horaPassou = new Date(aberto.data_horario).getTime() < Date.now();
+                  const ativo = !["compareceu", "no_show", "cancelado", "venda_fechada"].includes(
+                    aberto.status,
+                  );
+                  return (
+                    <>
+                      {aberto.status === "agendado" && !confirmadoAt && (
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                          Aguardando confirmação do cliente
+                        </span>
+                      )}
+                      {confirmadoAt && horaPassou && ativo && (
+                        <span className="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                          Aguardando você confirmar comparecimento
+                        </span>
+                      )}
+                      {ativo && (
+                        <AcaoAgendamentoButtons
+                          agendamentoId={aberto.id}
+                          size="default"
+                          onDone={() => {
+                            void load();
+                            setAberto(null);
+                          }}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </>
           )}
