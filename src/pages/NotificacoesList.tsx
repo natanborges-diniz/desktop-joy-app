@@ -1,10 +1,26 @@
 import { useEffect, useState } from "react";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, Loader2, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { Card } from "@/components/ui/card";
+import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
+
+type NotifTipo =
+  | "agendamento_novo_loja"
+  | "agendamento_confirmado_loja"
+  | "cobranca_comparecimento_loja"
+  | "cobranca_comparecimento_loja_2"
+  | string;
+
+type NotifPayload = {
+  agendamento_id?: string;
+  cliente_nome?: string;
+  data_horario?: string;
+  loja_nome?: string;
+};
 
 type Notif = {
   id: string;
@@ -12,26 +28,95 @@ type Notif = {
   mensagem: string | null;
   lida: boolean | null;
   created_at: string;
+  tipo: NotifTipo | null;
+  payload: NotifPayload | null;
 };
+
+const TIPOS_AGENDAMENTO = new Set([
+  "agendamento_novo_loja",
+  "agendamento_confirmado_loja",
+  "cobranca_comparecimento_loja",
+  "cobranca_comparecimento_loja_2",
+]);
+
+const TIPOS_COM_ACOES = new Set([
+  "agendamento_confirmado_loja",
+  "cobranca_comparecimento_loja",
+  "cobranca_comparecimento_loja_2",
+]);
+
+function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | null {
+  switch (tipo) {
+    case "agendamento_novo_loja":
+      return { label: "Novo agendamento", tone: "bg-primary/10 text-primary" };
+    case "agendamento_confirmado_loja":
+      return { label: "Cliente confirmou", tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" };
+    case "cobranca_comparecimento_loja":
+      return { label: "Cobrança 1ª", tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" };
+    case "cobranca_comparecimento_loja_2":
+      return { label: "Cobrança 2ª", tone: "bg-red-500/15 text-red-700 dark:text-red-300" };
+    default:
+      return null;
+  }
+}
+
+function fmtData(s?: string): string {
+  if (!s) return "";
+  try {
+    return format(new Date(s), "dd/MM HH:mm");
+  } catch {
+    return s;
+  }
+}
 
 export default function NotificacoesList() {
   const { user } = useAuth();
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  async function load() {
     if (!user) return;
-    void supabase
+    const { data } = await supabase
       .from("notificacoes")
-      .select("id,titulo,mensagem,lida,created_at")
+      .select("id,titulo,mensagem,lida,created_at,tipo,payload")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(100)
-      .then(({ data }) => {
-        setItems((data ?? []) as Notif[]);
-        setLoading(false);
-      });
+      .limit(100);
+    setItems((data ?? []) as unknown as Notif[]);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Realtime
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase
+      .channel(`notif-list-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notificacoes",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => void load(),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  async function marcarLida(id: string) {
+    await supabase.from("notificacoes").update({ lida: true }).eq("id", id);
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, lida: true } : n)));
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -53,25 +138,57 @@ export default function NotificacoesList() {
           </div>
         ) : (
           <ul className="mx-auto grid max-w-2xl gap-2">
-            {items.map((n) => (
-              <li key={n.id}>
-                <Card className="flex items-start gap-3 p-4 shadow-soft">
-                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                    <Bell className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground">{n.titulo ?? "Aviso"}</p>
-                    {n.mensagem && (
-                      <p className="mt-0.5 text-sm text-muted-foreground">{n.mensagem}</p>
+            {items.map((n) => {
+              const isAg = n.tipo && TIPOS_AGENDAMENTO.has(n.tipo);
+              const showActions =
+                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.payload?.agendamento_id;
+              const badge = tipoBadge(n.tipo);
+              return (
+                <li key={n.id}>
+                  <Card className="flex items-start gap-3 p-4 shadow-soft">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                      {isAg ? <CalendarClock className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-foreground">
+                          {isAg
+                            ? `📅 ${n.payload?.cliente_nome ?? "Cliente"} — ${fmtData(n.payload?.data_horario)}`
+                            : n.titulo ?? "Aviso"}
+                        </p>
+                        {badge && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.tone}`}>
+                            {badge.label}
+                          </span>
+                        )}
+                      </div>
+                      {n.mensagem && (
+                        <p className="mt-0.5 text-sm text-muted-foreground">{n.mensagem}</p>
+                      )}
+                      {showActions && (
+                        <AcaoAgendamentoButtons
+                          agendamentoId={n.payload!.agendamento_id!}
+                          onDone={() => void marcarLida(n.id)}
+                        />
+                      )}
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {formatDistanceToNow(new Date(n.created_at), {
+                          locale: ptBR,
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
+                    {!n.lida && (
+                      <button
+                        onClick={() => void marcarLida(n.id)}
+                        className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
+                        aria-label="Marcar como lida"
+                      />
                     )}
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatDistanceToNow(new Date(n.created_at), { locale: ptBR, addSuffix: true })}
-                    </p>
-                  </div>
-                  {!n.lida && <span className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />}
-                </Card>
-              </li>
-            ))}
+                  </Card>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
