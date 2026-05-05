@@ -222,20 +222,6 @@ export default function LojaAgenda() {
   const selectedKey = format(selectedDay, "yyyy-MM-dd");
   const dayItems = view === "month" ? byDay.get(selectedKey) ?? [] : items;
 
-  async function confirmarPresenca(a: Agendamento) {
-    const { error } = await supabase
-      .from("agendamentos")
-      .update({
-        loja_confirmou_presenca: true,
-        status:
-          a.status === "agendado" || a.status === "lembrete_enviado" ? "compareceu" : a.status,
-      })
-      .eq("id", a.id);
-    if (error) return;
-    void load();
-    setAberto(null);
-  }
-
   return (
     <div className="flex h-full flex-col">
       <header className="bg-gradient-header px-4 pt-safe text-header-foreground">
