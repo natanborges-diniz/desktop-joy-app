@@ -7,6 +7,7 @@ import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
+import { PendenciasBanner } from "@/components/PendenciasBanner";
 
 type NavItem = {
   to: string;
@@ -106,6 +107,7 @@ export default function AppShell() {
 
       {/* Conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
+        <PendenciasBanner />
         <main className="min-h-0 flex-1 overflow-hidden">
           {/* Em "/" no desktop, mostra placeholder; no mobile a Outlet renderiza a lista */}
           {isHome ? (
