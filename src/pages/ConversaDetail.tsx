@@ -137,6 +137,20 @@ export default function ConversaDetail() {
           });
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "mensagens_internas" },
+        (payload) => {
+          const m = payload.new as MensagemInterna;
+          const involves =
+            (m.remetente_id === user.id && m.destinatario_id === otherId) ||
+            (m.remetente_id === otherId && m.destinatario_id === user.id);
+          if (!involves) return;
+          setMessages((prev) =>
+            prev.map((x) => (x.id === m.id ? { ...x, lida: m.lida } : x)),
+          );
+        },
+      )
       .subscribe();
 
     return () => {
