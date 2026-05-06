@@ -11,6 +11,7 @@ import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
 type NotifTipo =
   | "agendamento_novo_loja"
   | "agendamento_confirmado_loja"
+  | "agendamento_confirmacao"
   | "cobranca_comparecimento_loja"
   | "cobranca_comparecimento_loja_2"
   | string;
@@ -28,15 +29,24 @@ type Notif = {
 const TIPOS_AGENDAMENTO = new Set([
   "agendamento_novo_loja",
   "agendamento_confirmado_loja",
+  "agendamento_confirmacao",
   "cobranca_comparecimento_loja",
   "cobranca_comparecimento_loja_2",
 ]);
 
 const TIPOS_COM_ACOES = new Set([
   "agendamento_confirmado_loja",
+  "agendamento_confirmacao",
   "cobranca_comparecimento_loja",
   "cobranca_comparecimento_loja_2",
 ]);
+
+function precisaAcaoFallback(n: { tipo: string | null; titulo: string | null; mensagem: string | null; referencia_id: string | null }): boolean {
+  if (!n.referencia_id) return false;
+  if (n.tipo && TIPOS_COM_ACOES.has(n.tipo)) return false;
+  const txt = `${n.titulo ?? ""} ${n.mensagem ?? ""}`.toLowerCase();
+  return /comparec/i.test(txt);
+}
 
 function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | null {
   switch (tipo) {
@@ -44,6 +54,8 @@ function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | nu
       return { label: "Novo agendamento", tone: "bg-primary/10 text-primary" };
     case "agendamento_confirmado_loja":
       return { label: "Cliente confirmou", tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" };
+    case "agendamento_confirmacao":
+      return { label: "Confirme comparecimento", tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" };
     case "cobranca_comparecimento_loja":
       return { label: "Cobrança 1ª", tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" };
     case "cobranca_comparecimento_loja_2":
@@ -134,7 +146,8 @@ export default function NotificacoesList() {
             {items.map((n) => {
               const isAg = n.tipo && TIPOS_AGENDAMENTO.has(n.tipo);
               const showActions =
-                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id;
+                (n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id) ||
+                precisaAcaoFallback(n);
               const badge = tipoBadge(n.tipo);
               return (
                 <li key={n.id}>
@@ -162,18 +175,27 @@ export default function NotificacoesList() {
                           onDone={() => void marcarLida(n.id)}
                         />
                       )}
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(n.created_at), {
-                          locale: ptBR,
-                          addSuffix: true,
-                        })}
-                      </p>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(n.created_at), {
+                            locale: ptBR,
+                            addSuffix: true,
+                          })}
+                        </p>
+                        {!n.lida && !showActions && (
+                          <button
+                            onClick={() => void marcarLida(n.id)}
+                            className="rounded-md border border-primary/40 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+                          >
+                            Marcar como lida
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {!n.lida && (
-                      <button
-                        onClick={() => void marcarLida(n.id)}
+                    {!n.lida && showActions && (
+                      <span
                         className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
-                        aria-label="Marcar como lida"
+                        aria-label="Não lida"
                       />
                     )}
                   </Card>
