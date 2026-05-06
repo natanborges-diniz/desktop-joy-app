@@ -54,6 +54,8 @@ function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | nu
       return { label: "Novo agendamento", tone: "bg-primary/10 text-primary" };
     case "agendamento_confirmado_loja":
       return { label: "Cliente confirmou", tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" };
+    case "agendamento_confirmacao":
+      return { label: "Confirme comparecimento", tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" };
     case "cobranca_comparecimento_loja":
       return { label: "Cobrança 1ª", tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" };
     case "cobranca_comparecimento_loja_2":
