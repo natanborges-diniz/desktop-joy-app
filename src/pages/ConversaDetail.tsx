@@ -405,11 +405,12 @@ export default function ConversaDetail() {
                         )}
                         <p
                           className={cn(
-                            "mt-1 text-right text-[10px]",
+                            "mt-1 flex items-center justify-end gap-1 text-[10px]",
                             mine ? "text-foreground/55" : "text-muted-foreground",
                           )}
                         >
-                          {format(new Date(m.created_at), "HH:mm")}
+                          <span>{format(new Date(m.created_at), "HH:mm")}</span>
+                          {mine && <MessageTicks status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"} />}
                         </p>
                       </div>
                     </div>
