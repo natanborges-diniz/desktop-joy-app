@@ -11,6 +11,7 @@ import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
 type NotifTipo =
   | "agendamento_novo_loja"
   | "agendamento_confirmado_loja"
+  | "agendamento_confirmacao"
   | "cobranca_comparecimento_loja"
   | "cobranca_comparecimento_loja_2"
   | string;
@@ -28,15 +29,24 @@ type Notif = {
 const TIPOS_AGENDAMENTO = new Set([
   "agendamento_novo_loja",
   "agendamento_confirmado_loja",
+  "agendamento_confirmacao",
   "cobranca_comparecimento_loja",
   "cobranca_comparecimento_loja_2",
 ]);
 
 const TIPOS_COM_ACOES = new Set([
   "agendamento_confirmado_loja",
+  "agendamento_confirmacao",
   "cobranca_comparecimento_loja",
   "cobranca_comparecimento_loja_2",
 ]);
+
+function precisaAcaoFallback(n: { tipo: string | null; titulo: string | null; mensagem: string | null; referencia_id: string | null }): boolean {
+  if (!n.referencia_id) return false;
+  if (n.tipo && TIPOS_COM_ACOES.has(n.tipo)) return false;
+  const txt = `${n.titulo ?? ""} ${n.mensagem ?? ""}`.toLowerCase();
+  return /comparec/i.test(txt);
+}
 
 function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | null {
   switch (tipo) {
