@@ -110,7 +110,28 @@ export default function ConversaDetail() {
             (m.remetente_id === user.id && m.destinatario_id === otherId) ||
             (m.remetente_id === otherId && m.destinatario_id === user.id);
           if (!involves) return;
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          setMessages((prev) => {
+            // Já existe pelo id real → ignorar.
+            if (prev.some((x) => x.id === m.id)) return prev;
+            // Mensagem própria que ainda está como otimista (id "tmp-...") →
+            // substituir a tmp correspondente pela versão real, sem duplicar.
+            if (m.remetente_id === user.id) {
+              const idx = prev.findIndex(
+                (x) =>
+                  x.id.startsWith("tmp-") &&
+                  x.remetente_id === m.remetente_id &&
+                  x.destinatario_id === m.destinatario_id &&
+                  (x.conteudo ?? "") === (m.conteudo ?? "") &&
+                  (x.anexo_tipo ?? null) === (m.anexo_tipo ?? null),
+              );
+              if (idx !== -1) {
+                const next = prev.slice();
+                next[idx] = m;
+                return next;
+              }
+            }
+            return [...prev, m];
+          });
         },
       )
       .subscribe();
