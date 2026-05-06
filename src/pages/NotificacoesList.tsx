@@ -146,7 +146,8 @@ export default function NotificacoesList() {
             {items.map((n) => {
               const isAg = n.tipo && TIPOS_AGENDAMENTO.has(n.tipo);
               const showActions =
-                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id;
+                (n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id) ||
+                precisaAcaoFallback(n);
               const badge = tipoBadge(n.tipo);
               return (
                 <li key={n.id}>
@@ -174,18 +175,27 @@ export default function NotificacoesList() {
                           onDone={() => void marcarLida(n.id)}
                         />
                       )}
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(n.created_at), {
-                          locale: ptBR,
-                          addSuffix: true,
-                        })}
-                      </p>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(n.created_at), {
+                            locale: ptBR,
+                            addSuffix: true,
+                          })}
+                        </p>
+                        {!n.lida && !showActions && (
+                          <button
+                            onClick={() => void marcarLida(n.id)}
+                            className="rounded-md border border-primary/40 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+                          >
+                            Marcar como lida
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {!n.lida && (
-                      <button
-                        onClick={() => void marcarLida(n.id)}
+                    {!n.lida && showActions && (
+                      <span
                         className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
-                        aria-label="Marcar como lida"
+                        aria-label="Não lida"
                       />
                     )}
                   </Card>
