@@ -529,3 +529,9 @@ export default function ConversaDetail() {
     </div>
   );
 }
+
+function MessageTicks({ status }: { status: "pending" | "sent" | "read" }) {
+  if (status === "pending") return <Clock3 className="h-3 w-3 opacity-70" aria-label="Enviando" />;
+  if (status === "read") return <CheckCheck className="h-3.5 w-3.5 text-sky-500" aria-label="Lida" />;
+  return <Check className="h-3.5 w-3.5 opacity-70" aria-label="Enviada" />;
+}
