@@ -15,6 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   Camera,
+  Check,
+  CheckCheck,
+  Clock3,
   FileText,
   Loader2,
   Paperclip,
@@ -132,6 +135,20 @@ export default function ConversaDetail() {
             }
             return [...prev, m];
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "mensagens_internas" },
+        (payload) => {
+          const m = payload.new as MensagemInterna;
+          const involves =
+            (m.remetente_id === user.id && m.destinatario_id === otherId) ||
+            (m.remetente_id === otherId && m.destinatario_id === user.id);
+          if (!involves) return;
+          setMessages((prev) =>
+            prev.map((x) => (x.id === m.id ? { ...x, lida: m.lida } : x)),
+          );
         },
       )
       .subscribe();
@@ -388,11 +405,12 @@ export default function ConversaDetail() {
                         )}
                         <p
                           className={cn(
-                            "mt-1 text-right text-[10px]",
+                            "mt-1 flex items-center justify-end gap-1 text-[10px]",
                             mine ? "text-foreground/55" : "text-muted-foreground",
                           )}
                         >
-                          {format(new Date(m.created_at), "HH:mm")}
+                          <span>{format(new Date(m.created_at), "HH:mm")}</span>
+                          {mine && <MessageTicks status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"} />}
                         </p>
                       </div>
                     </div>
@@ -510,4 +528,10 @@ export default function ConversaDetail() {
       </form>
     </div>
   );
+}
+
+function MessageTicks({ status }: { status: "pending" | "sent" | "read" }) {
+  if (status === "pending") return <Clock3 className="h-3 w-3 opacity-70" aria-label="Enviando" />;
+  if (status === "read") return <CheckCheck className="h-3.5 w-3.5 text-sky-500" aria-label="Lida" />;
+  return <Check className="h-3.5 w-3.5 opacity-70" aria-label="Enviada" />;
 }
