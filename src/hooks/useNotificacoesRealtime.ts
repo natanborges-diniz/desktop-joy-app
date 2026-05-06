@@ -30,7 +30,7 @@ export function useNotificacoesRealtime(): void {
           event: "INSERT",
           schema: "public",
           table: "notificacoes",
-          filter: `user_id=eq.${user.id}`,
+          filter: `usuario_id=eq.${user.id}`,
         },
         (payload) => {
           const row = payload.new as NotifRow;

@@ -15,13 +15,6 @@ type NotifTipo =
   | "cobranca_comparecimento_loja_2"
   | string;
 
-type NotifPayload = {
-  agendamento_id?: string;
-  cliente_nome?: string;
-  data_horario?: string;
-  loja_nome?: string;
-};
-
 type Notif = {
   id: string;
   titulo: string | null;
@@ -29,7 +22,7 @@ type Notif = {
   lida: boolean | null;
   created_at: string;
   tipo: NotifTipo | null;
-  payload: NotifPayload | null;
+  referencia_id: string | null;
 };
 
 const TIPOS_AGENDAMENTO = new Set([
@@ -78,8 +71,8 @@ export default function NotificacoesList() {
     if (!user) return;
     const { data } = await supabase
       .from("notificacoes")
-      .select("id,titulo,mensagem,lida,created_at,tipo,payload")
-      .eq("user_id", user.id)
+      .select("id,titulo,mensagem,lida,created_at,tipo,referencia_id")
+      .eq("usuario_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100);
     setItems((data ?? []) as unknown as Notif[]);
@@ -102,7 +95,7 @@ export default function NotificacoesList() {
           event: "*",
           schema: "public",
           table: "notificacoes",
-          filter: `user_id=eq.${user.id}`,
+          filter: `usuario_id=eq.${user.id}`,
         },
         () => void load(),
       )
@@ -141,7 +134,7 @@ export default function NotificacoesList() {
             {items.map((n) => {
               const isAg = n.tipo && TIPOS_AGENDAMENTO.has(n.tipo);
               const showActions =
-                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.payload?.agendamento_id;
+                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id;
               const badge = tipoBadge(n.tipo);
               return (
                 <li key={n.id}>
@@ -152,9 +145,7 @@ export default function NotificacoesList() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-foreground">
-                          {isAg
-                            ? `📅 ${n.payload?.cliente_nome ?? "Cliente"} — ${fmtData(n.payload?.data_horario)}`
-                            : n.titulo ?? "Aviso"}
+                          {n.titulo ?? "Aviso"}
                         </p>
                         {badge && (
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.tone}`}>
@@ -167,7 +158,7 @@ export default function NotificacoesList() {
                       )}
                       {showActions && (
                         <AcaoAgendamentoButtons
-                          agendamentoId={n.payload!.agendamento_id!}
+                          agendamentoId={n.referencia_id!}
                           onDone={() => void marcarLida(n.id)}
                         />
                       )}
