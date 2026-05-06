@@ -1,36 +1,54 @@
-# Checks de status de mensagem (estilo WhatsApp)
+# Alertas insistentes para zerar notificações
 
-Adicionar indicadores visuais nos balões de mensagens **enviadas por mim** em `src/pages/ConversaDetail.tsx`, seguindo o padrão WhatsApp:
+Hoje as notificações ficam silenciosas na aba **Avisos** — a loja pode ignorar. Vamos forçar a leitura com dois mecanismos combinados:
 
-- 🕗 Relógio cinza → mensagem otimista, ainda não confirmada pelo servidor (id começa com `tmp-`).
-- ✓ Um check cinza → enviada e gravada no servidor (id real, `lida = false`).
-- ✓✓ Dois checks azuis → lida pelo destinatário (`lida = true`).
+## 1. Banner fixo no topo (persistente)
 
-Mensagens recebidas continuam sem check (igual WhatsApp).
+Novo componente `PendenciasBanner` renderizado dentro do `AppShell`, **acima do `<main>`**, visível em **todas as rotas** (Conversas, Agenda, Demandas, Perfil, etc.).
 
-## Como será feito
+Comportamento:
+- Conta `notificacoes` com `usuario_id = user.id` e `lida = false` (qualquer `tipo`, conforme pedido).
+- Se contagem > 0:
+  - Faixa vermelha (`bg-destructive text-destructive-foreground`) full-width, sticky.
+  - Texto: **"Você tem N aviso(s) pendente(s). Resolva agora."**
+  - Botão **"Ver avisos"** que navega para `/notificacoes`.
+  - Ícone de sino pulsando (animação `animate-pulse`).
+- Se contagem = 0: não renderiza nada.
+- Atualiza em tempo real via Supabase Realtime no canal já existente (`useNotificacoesRealtime`) — vamos expor a contagem via novo hook `usePendenciasCount` (espelha o padrão de `useUnreadCount`).
 
-1. **Componente `MessageTicks`** (inline em `ConversaDetail.tsx`, pequeno):
-   - Recebe `status: "pending" | "sent" | "read"`.
-   - Renderiza ícones do `lucide-react`: `Clock3` (pending), `Check` (sent), `CheckCheck` (sent + read), com cor azul quando lida.
+## 2. Lembrete recorrente a cada 15 minutos
 
-2. **Derivar status** dentro do `.map` que renderiza cada mensagem:
-   ```ts
-   const status = m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent";
-   ```
+Novo hook `usePendenciasReminder` montado no `AppShell`:
+- `setInterval` de **15 minutos**.
+- A cada tick, se `pendenciasCount > 0`:
+  - Dispara `showLocalNotification` com:
+    - title: "Você tem N avisos pendentes"
+    - body: "Toque para resolver agora"
+    - url: `/notificacoes`
+    - tag: `"pendencias-reminder"` (substitui a anterior, sem empilhar)
+  - **Suprimido** se a aba estiver visível em `/notificacoes` (o usuário já está resolvendo) — usando `suppressWhenOnPathPrefixes: ["/notificacoes"]` que já existe em `localNotify.ts`.
+- Limpa o intervalo no unmount / logout.
+- Não dispara enquanto `Notification.permission !== "granted"` (já tratado pelo `localNotify`).
 
-3. **Renderizar ao lado do horário** no rodapé do balão `mine`, mantendo o layout atual (`mt-1 text-right`).
+## 3. Ajustes finos
 
-4. **Realtime de leitura**: o canal atual em `ConversaDetail.tsx` só escuta `INSERT`. Para que o remetente veja os checks virarem azuis quando o outro lado abrir a conversa, ampliar o filtro do canal para também escutar `UPDATE` em `mensagens_internas` e atualizar a `lida` da mensagem correspondente no estado local (sem refetch).
+- Banner também cabe em mobile: respeitar `pt-safe` apenas no header existente; banner fica entre header e main, sem quebrar a bottom nav.
+- Z-index alto para nunca ser coberto por dialogs internos do conteúdo.
+- Link do banner usa `react-router` `useNavigate`, não recarrega.
 
-5. **Sem mudança de schema**: o campo `lida: boolean` já existe e já é marcado como `true` no `load()` do destinatário (linhas 89-97). Nenhum trigger/migration necessário.
+## Arquivos
 
-## Fora do escopo
+**Novos:**
+- `src/hooks/usePendenciasCount.ts` — query + realtime sub para `notificacoes` não lidas do usuário.
+- `src/hooks/usePendenciasReminder.ts` — `setInterval` de 15min com `showLocalNotification`.
+- `src/components/PendenciasBanner.tsx` — UI do banner.
 
-- Não adicionar estado "entregue" separado (não há coluna `entregue_em`); WhatsApp tem 3 estados, aqui ficam 3 também mas mapeados a "pendente / enviada / lida".
-- Não mexer em `ConversasSidebar.tsx` (lista) — só no detalhe da conversa.
-- Não alterar fluxo de envio nem otimismo.
+**Editados:**
+- `src/components/AppShell.tsx` — montar hook do reminder e renderizar `<PendenciasBanner />` acima do `<main>`.
 
-## Risco
+## Fora de escopo
 
-- Para o `UPDATE` realtime funcionar, a publicação `supabase_realtime` precisa incluir UPDATEs de `mensagens_internas`. Se não estiver habilitado, o check só vira azul no próximo carregamento da tela. Caso necessário, será adicionada uma migration `ALTER PUBLICATION supabase_realtime ADD TABLE public.mensagens_internas` (já provavelmente existente, dado que INSERT já funciona).
+- Não bloqueia navegação (você escolheu "banner fixo", não "bloqueio").
+- Não toca em RLS / schema do banco.
+- Não muda a edge function `loja-acao-agendamento`.
+- Backfill de notificações antigas: não.
