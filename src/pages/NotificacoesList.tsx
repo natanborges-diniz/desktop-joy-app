@@ -15,13 +15,6 @@ type NotifTipo =
   | "cobranca_comparecimento_loja_2"
   | string;
 
-type NotifPayload = {
-  agendamento_id?: string;
-  cliente_nome?: string;
-  data_horario?: string;
-  loja_nome?: string;
-};
-
 type Notif = {
   id: string;
   titulo: string | null;
@@ -29,7 +22,7 @@ type Notif = {
   lida: boolean | null;
   created_at: string;
   tipo: NotifTipo | null;
-  payload: NotifPayload | null;
+  referencia_id: string | null;
 };
 
 const TIPOS_AGENDAMENTO = new Set([
@@ -78,8 +71,8 @@ export default function NotificacoesList() {
     if (!user) return;
     const { data } = await supabase
       .from("notificacoes")
-      .select("id,titulo,mensagem,lida,created_at,tipo,payload")
-      .eq("user_id", user.id)
+      .select("id,titulo,mensagem,lida,created_at,tipo,referencia_id")
+      .eq("usuario_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100);
     setItems((data ?? []) as unknown as Notif[]);
@@ -102,7 +95,7 @@ export default function NotificacoesList() {
           event: "*",
           schema: "public",
           table: "notificacoes",
-          filter: `user_id=eq.${user.id}`,
+          filter: `usuario_id=eq.${user.id}`,
         },
         () => void load(),
       )
