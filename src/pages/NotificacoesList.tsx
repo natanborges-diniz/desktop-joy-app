@@ -134,7 +134,7 @@ export default function NotificacoesList() {
             {items.map((n) => {
               const isAg = n.tipo && TIPOS_AGENDAMENTO.has(n.tipo);
               const showActions =
-                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.payload?.agendamento_id;
+                n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id;
               const badge = tipoBadge(n.tipo);
               return (
                 <li key={n.id}>
@@ -145,9 +145,7 @@ export default function NotificacoesList() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-foreground">
-                          {isAg
-                            ? `📅 ${n.payload?.cliente_nome ?? "Cliente"} — ${fmtData(n.payload?.data_horario)}`
-                            : n.titulo ?? "Aviso"}
+                          {n.titulo ?? "Aviso"}
                         </p>
                         {badge && (
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.tone}`}>
@@ -160,7 +158,7 @@ export default function NotificacoesList() {
                       )}
                       {showActions && (
                         <AcaoAgendamentoButtons
-                          agendamentoId={n.payload!.agendamento_id!}
+                          agendamentoId={n.referencia_id!}
                           onDone={() => void marcarLida(n.id)}
                         />
                       )}
