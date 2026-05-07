@@ -186,6 +186,7 @@ export default function LojaNovaDemanda() {
   const [cpfsAprovados, setCpfsAprovados] = useState<CpfAprovado[] | null>(null);
   const [carregandoCpfs, setCarregandoCpfs] = useState(false);
   const [consultaCpfSelecionada, setConsultaCpfSelecionada] = useState<string | null>(null);
+  const [revisando, setRevisando] = useState(false);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Opção de menu para o fluxo "consulta_cpf" (usada pelo card de bloqueio do boleto)
