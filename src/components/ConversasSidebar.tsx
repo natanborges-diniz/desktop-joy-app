@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 import { usePresence } from "@/hooks/usePresence";
 import { MessageTicks } from "@/components/MessageTicks";
+import { mensagensSelectColumns } from "@/lib/mensagensColumns";
 
 type Conversation = {
   otherId: string;
