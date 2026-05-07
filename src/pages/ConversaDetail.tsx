@@ -15,15 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   Camera,
-  Check,
-  CheckCheck,
-  Clock3,
   FileText,
   Loader2,
   Paperclip,
   Send,
   X,
 } from "lucide-react";
+import { MessageTicks } from "@/components/MessageTicks";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
