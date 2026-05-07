@@ -49,33 +49,37 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
 
     async function load() {
       setLoading(true);
-      const cols = await mensagensSelectColumns();
-      let { data, error } = await supabase
-        .from("mensagens_internas")
-        .select(cols)
-        .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
-        .order("created_at", { ascending: false })
-        .limit(500);
+      const orFilter = `remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`;
 
-      if (error && (error.code === "42703" || /editada_em|apagada_em/.test(error.message ?? ""))) {
-        // Colunas extra não existem: invalida cache e tenta de novo só com as base.
-        console.warn("[ConversasSidebar] colunas extras ausentes, refazendo com base", error);
-        resetMensagensColumnsCache();
-        ({ data, error } = await supabase
+      async function runQuery(cols: string) {
+        return supabase
           .from("mensagens_internas")
-          .select(MENSAGENS_BASE_COLUMNS)
-          .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
+          .select(cols)
+          .or(orFilter)
           .order("created_at", { ascending: false })
-          .limit(500));
+          .limit(500);
+      }
+
+      const cols = await mensagensSelectColumns();
+      let res = await runQuery(cols);
+
+      if (
+        res.error &&
+        (res.error.code === "42703" ||
+          /editada_em|apagada_em/.test(res.error.message ?? ""))
+      ) {
+        console.warn("[ConversasSidebar] colunas extras ausentes, refazendo com base", res.error);
+        resetMensagensColumnsCache();
+        res = await runQuery(MENSAGENS_BASE_COLUMNS);
       }
 
       if (!active) return;
-      if (error) {
-        console.error("[ConversasSidebar] erro carregando mensagens", error);
+      if (res.error) {
+        console.error("[ConversasSidebar] erro carregando mensagens", res.error);
         setLoading(false);
         return;
       }
-      const msgs = ((data ?? []) as unknown) as MensagemInterna[];
+      const msgs = ((res.data ?? []) as unknown) as MensagemInterna[];
       setMessages(msgs);
 
       const otherIds = Array.from(
