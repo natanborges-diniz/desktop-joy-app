@@ -11,6 +11,7 @@ import { Loader2, Search, MessageSquare, Plus, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 import { usePresence } from "@/hooks/usePresence";
+import { MessageTicks } from "@/components/MessageTicks";
 
 type Conversation = {
   otherId: string;
