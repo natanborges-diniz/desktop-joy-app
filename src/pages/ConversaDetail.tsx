@@ -94,16 +94,19 @@ export default function ConversaDetail() {
 
     async function load() {
       const cols = await mensagensSelectColumns();
-      if (active) setEditAvailable(await hasEditDeleteColumns());
-      const [{ data: msgs }, { data: prof }] = await Promise.all([
-        supabase
+      const orFilter = `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`;
+
+      async function fetchMsgs(c: string) {
+        return supabase
           .from("mensagens_internas")
-          .select(cols)
-          .or(
-            `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
-          )
+          .select(c)
+          .or(orFilter)
           .order("created_at", { ascending: true })
-          .limit(500),
+          .limit(500);
+      }
+
+      const [msgsRes, profRes] = await Promise.all([
+        fetchMsgs(cols),
         supabase
           .from("profiles")
           .select("id,nome,email,cargo,setor_id,avatar_url,ativo")
@@ -111,10 +114,25 @@ export default function ConversaDetail() {
           .maybeSingle(),
       ]);
 
+      let finalMsgs = msgsRes;
+      if (
+        msgsRes.error &&
+        (msgsRes.error.code === "42703" ||
+          /editada_em|apagada_em/.test(msgsRes.error.message ?? ""))
+      ) {
+        console.warn("[ConversaDetail] colunas extras ausentes, refazendo", msgsRes.error);
+        resetMensagensColumnsCache();
+        finalMsgs = await fetchMsgs(MENSAGENS_BASE_COLUMNS);
+      } else if (msgsRes.error) {
+        console.error("[ConversaDetail] erro carregando mensagens", msgsRes.error);
+      }
+
+      if (active) setEditAvailable(await hasEditDeleteColumns());
+
       if (!active) return;
-      const msgsArr = ((msgs ?? []) as unknown) as MensagemInterna[];
+      const msgsArr = ((finalMsgs.data ?? []) as unknown) as MensagemInterna[];
       setMessages(msgsArr);
-      setOther((prof ?? null) as Profile | null);
+      setOther((profRes.data ?? null) as Profile | null);
       setLoading(false);
 
       const unread = msgsArr.filter(
