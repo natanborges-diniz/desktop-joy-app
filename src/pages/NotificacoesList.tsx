@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Bell, Loader2, CalendarClock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Bell, Loader2, CalendarClock, X as XIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
+import { cn } from "@/lib/utils";
 
 type NotifTipo =
   | "agendamento_novo_loja"
@@ -65,28 +66,22 @@ function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | nu
   }
 }
 
-function fmtData(s?: string): string {
-  if (!s) return "";
-  try {
-    return format(new Date(s), "dd/MM HH:mm");
-  } catch {
-    return s;
-  }
-}
-
 export default function NotificacoesList() {
   const { user } = useAuth();
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [verLidas, setVerLidas] = useState(false);
 
   async function load() {
     if (!user) return;
-    const { data } = await supabase
+    let q = supabase
       .from("notificacoes")
       .select("id,titulo,mensagem,lida,created_at,tipo,referencia_id")
       .eq("usuario_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100);
+    if (!verLidas) q = q.eq("lida", false);
+    const { data } = await q;
     setItems((data ?? []) as unknown as Notif[]);
     setLoading(false);
   }
@@ -94,7 +89,7 @@ export default function NotificacoesList() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, verLidas]);
 
   // Realtime
   useEffect(() => {
@@ -116,47 +111,120 @@ export default function NotificacoesList() {
       void supabase.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, verLidas]);
 
   async function marcarLida(id: string) {
     await supabase.from("notificacoes").update({ lida: true }).eq("id", id);
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, lida: true } : n)));
+    setItems((prev) => prev.filter((n) => n.id !== id || verLidas).map((n) =>
+      n.id === id ? { ...n, lida: true } : n,
+    ));
   }
+
+  // Marca como lidas TODAS as notificações de um mesmo agendamento
+  // (ex.: 1ª e 2ª cobrança somem juntas quando a ação é registrada).
+  async function marcarLidaPorAgendamento(agendamentoId: string) {
+    if (!user) return;
+    await supabase
+      .from("notificacoes")
+      .update({ lida: true })
+      .eq("usuario_id", user.id)
+      .eq("referencia_id", agendamentoId)
+      .eq("lida", false);
+    setItems((prev) =>
+      verLidas
+        ? prev.map((n) => (n.referencia_id === agendamentoId ? { ...n, lida: true } : n))
+        : prev.filter((n) => n.referencia_id !== agendamentoId),
+    );
+  }
+
+  // Deduplica por referencia_id (agendamento) — mantém só a notificação mais
+  // recente do grupo. As antigas são marcadas como lidas em background para
+  // não poluírem a lista futuramente.
+  const visibleItems = useMemo(() => {
+    const seen = new Map<string, Notif>();
+    const result: Notif[] = [];
+    const toMarkLida: string[] = [];
+    for (const n of items) {
+      const groupKey =
+        n.referencia_id && n.tipo && TIPOS_COM_ACOES.has(n.tipo)
+          ? `ag:${n.referencia_id}`
+          : `id:${n.id}`;
+      const existing = seen.get(groupKey);
+      if (!existing) {
+        seen.set(groupKey, n);
+        result.push(n);
+      } else {
+        // já temos algo mais recente — esconder esta e marcar como lida
+        if (!n.lida) toMarkLida.push(n.id);
+      }
+    }
+    if (toMarkLida.length > 0) {
+      void supabase
+        .from("notificacoes")
+        .update({ lida: true })
+        .in("id", toMarkLida);
+    }
+    return result;
+  }, [items]);
+
+  const pendentesCount = useMemo(
+    () => items.filter((n) => !n.lida).length,
+    [items],
+  );
 
   return (
     <div className="flex h-full flex-col">
       <header className="bg-gradient-header px-4 pt-safe text-header-foreground">
-        <div className="flex h-14 items-center md:h-16">
+        <div className="flex h-14 items-center justify-between md:h-16">
           <h1 className="text-lg font-semibold md:text-xl">Avisos</h1>
+          <button
+            type="button"
+            onClick={() => setVerLidas((v) => !v)}
+            className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-header-foreground backdrop-blur hover:bg-white/25"
+          >
+            {verLidas ? "Ver pendentes" : "Ver lidas"}
+          </button>
         </div>
-        <p className="pb-3 text-sm text-white/80">Notificações e atualizações</p>
+        <p className="pb-3 text-sm text-white/80">
+          {verLidas
+            ? "Histórico de notificações já lidas"
+            : `${pendentesCount} pendência${pendentesCount === 1 ? "" : "s"}`}
+        </p>
       </header>
       <div className="flex-1 overflow-y-auto scroll-thin p-4">
         {loading ? (
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : items.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <div className="mx-auto mt-10 flex max-w-xs flex-col items-center gap-2 text-center">
             <Bell className="h-10 w-10 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Sem avisos por aqui.</p>
+            <p className="text-sm text-muted-foreground">
+              {verLidas ? "Sem avisos lidos." : "Tudo em dia! Sem pendências."}
+            </p>
           </div>
         ) : (
           <ul className="mx-auto grid max-w-2xl gap-2">
-            {items.map((n) => {
+            {visibleItems.map((n) => {
               const isAg = n.tipo && TIPOS_AGENDAMENTO.has(n.tipo);
               const showActions =
-                (n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id) ||
-                precisaAcaoFallback(n);
+                ((n.tipo && TIPOS_COM_ACOES.has(n.tipo) && n.referencia_id) ||
+                  precisaAcaoFallback(n)) &&
+                !n.lida;
               const badge = tipoBadge(n.tipo);
               return (
                 <li key={n.id}>
-                  <Card className="flex items-start gap-3 p-4 shadow-soft">
+                  <Card
+                    className={cn(
+                      "relative flex items-start gap-3 p-4 shadow-soft",
+                      n.lida && "opacity-60",
+                    )}
+                  >
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
                       {isAg ? <CalendarClock className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 pr-6">
                         <p className="font-semibold text-foreground">
                           {n.titulo ?? "Aviso"}
                         </p>
@@ -172,7 +240,7 @@ export default function NotificacoesList() {
                       {showActions && (
                         <AcaoAgendamentoButtons
                           agendamentoId={n.referencia_id!}
-                          onDone={() => void marcarLida(n.id)}
+                          onDone={() => void marcarLidaPorAgendamento(n.referencia_id!)}
                         />
                       )}
                       <div className="mt-1 flex items-center justify-between gap-2">
@@ -192,11 +260,19 @@ export default function NotificacoesList() {
                         )}
                       </div>
                     </div>
-                    {!n.lida && showActions && (
-                      <span
-                        className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
-                        aria-label="Não lida"
-                      />
+                    {!n.lida && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void (n.referencia_id && showActions
+                            ? marcarLidaPorAgendamento(n.referencia_id)
+                            : marcarLida(n.id))
+                        }
+                        aria-label="Dispensar aviso"
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
                     )}
                   </Card>
                 </li>
