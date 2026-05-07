@@ -1,58 +1,29 @@
-# Restaurar envio de mensagens — rodar migração no Supabase externo
+# As conversas sumiram — corrigir o probe de colunas
 
-## O que está quebrando
+## Diagnóstico
 
-`ConversaDetail.tsx` faz `select ... editada_em, apagada_em` em `mensagens_internas`, mas essas colunas não existem no banco do projeto Supabase externo (`kvggebtnqmxydtwaumqz`). Toda chamada volta `400` e o chat não carrega nem envia mensagem.
+O fallback que adicionei em `src/lib/mensagensColumns.ts` está com a lógica invertida:
 
-Como esse banco **não** é o Lovable Cloud deste projeto, eu não consigo aplicar a migração daqui — ela precisa ser executada manualmente no SQL Editor do projeto `kvggebtnqmxydtwaumqz`.
-
-## Ação para você executar (uma vez)
-
-Abra o SQL Editor do Supabase do atrium-link e rode:
-
-```sql
--- 1) Colunas que faltaram
-ALTER TABLE public.mensagens_internas
-  ADD COLUMN IF NOT EXISTS editada_em timestamptz,
-  ADD COLUMN IF NOT EXISTS apagada_em timestamptz;
-
--- 2) Trigger que protege campos imutáveis em UPDATE
-CREATE OR REPLACE FUNCTION public.mensagens_internas_protect_immutable()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-  IF NEW.id IS DISTINCT FROM OLD.id
-     OR NEW.remetente_id IS DISTINCT FROM OLD.remetente_id
-     OR NEW.destinatario_id IS DISTINCT FROM OLD.destinatario_id
-     OR NEW.created_at IS DISTINCT FROM OLD.created_at
-     OR NEW.conversa_id IS DISTINCT FROM OLD.conversa_id
-  THEN RAISE EXCEPTION 'Campos imutáveis não podem ser alterados';
-  END IF;
-  RETURN NEW;
-END $$;
-
-DROP TRIGGER IF EXISTS trg_mensagens_internas_protect ON public.mensagens_internas;
-CREATE TRIGGER trg_mensagens_internas_protect
-BEFORE UPDATE ON public.mensagens_internas
-FOR EACH ROW EXECUTE FUNCTION public.mensagens_internas_protect_immutable();
-
--- 3) RLS: autor pode atualizar a própria mensagem (editar/apagar)
-DROP POLICY IF EXISTS "Sender can update own message" ON public.mensagens_internas;
-CREATE POLICY "Sender can update own message"
-ON public.mensagens_internas
-FOR UPDATE TO authenticated
-USING (auth.uid() = remetente_id);
+```ts
+cached = !error || error.code !== "42703";
 ```
 
-## Hardening no frontend (o que eu vou fazer ao implementar este plano)
+Se o probe retorna **qualquer outro erro** (RLS, 401, rede momentânea, etc.), `cached` vira `true` — e aí o `select` real é feito **com** `editada_em,apagada_em`, que não existem no banco externo. Resultado: erro 400, `load()` faz `return` silencioso, e a sidebar fica vazia → "as conversas sumiram".
 
-Para que um problema parecido não derrube o chat de novo:
+Além disso, em `ConversasSidebar.tsx` e `ConversaDetail.tsx` o `load()` apenas faz `return` quando dá erro, sem `console.error` nem fallback — então o sintoma é mudo.
 
-- `src/pages/ConversaDetail.tsx`: tornar `editada_em`/`apagada_em` opcionais no consumo — se o `select` falhar com `42703`, faz fallback para o `select` antigo (sem essas colunas) e desabilita os botões "Editar"/"Apagar" com um aviso silencioso. Assim, mesmo sem a migração, o chat envia/recebe normalmente.
-- `src/components/ConversasSidebar.tsx`: aplicar o mesmo fallback no preview da última mensagem (ignora `apagada_em` quando indefinido).
+## Correções (todas frontend, sem tocar no banco)
 
-Sem alterações de UX visível enquanto a migração não roda; depois que você rodar a SQL acima, editar/apagar volta a funcionar automaticamente.
+### 1. `src/lib/mensagensColumns.ts`
+- Inverter a lógica: `cached = true` **somente** quando `error` é `null`. Em qualquer erro (incluindo `42703`), `cached = false` (usa apenas `BASE_COLUMNS`).
+- Não cachear erros transitórios para sempre: se o erro **não** for `42703`, deixar `cached = false` mas **não memoizar** — assim, na próxima chamada tenta de novo.
 
-## Fora de escopo
+### 2. `src/components/ConversasSidebar.tsx` (função `load`)
+- Logar o erro com `console.error("[ConversasSidebar] load mensagens", error)` para diagnóstico futuro.
+- Se o `select` falhar com `42703` (colunas inexistentes), invalidar o cache do probe e refazer a query com `BASE_COLUMNS`. Assim, mesmo que o probe tenha errado, a lista volta a aparecer.
 
-- Reverter as features de editar/apagar.
-- Migrar este projeto para o Lovable Cloud.
+### 3. `src/pages/ConversaDetail.tsx`
+- Mesma proteção: log + retry com `BASE_COLUMNS` em caso de `42703`.
+
+### Out of scope
+- Não mexer no banco externo nem na UI de editar/apagar — quando a migração rodar, o probe passa e os botões reaparecem automaticamente.

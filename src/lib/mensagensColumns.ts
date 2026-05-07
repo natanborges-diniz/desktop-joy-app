@@ -20,10 +20,25 @@ export async function hasEditDeleteColumns(): Promise<boolean> {
       .from("mensagens_internas")
       .select("editada_em,apagada_em")
       .limit(1);
-    cached = !error || error.code !== "42703";
+    if (!error) {
+      // Colunas existem.
+      cached = true;
+    } else if (error.code === "42703") {
+      // Colunas confirmadamente não existem — memoiza definitivamente.
+      cached = false;
+    } else {
+      // Qualquer outro erro (RLS, rede, 401, etc.): assume que NÃO existem
+      // (mais seguro: mantém o select restrito ao BASE) e NÃO memoiza,
+      // permitindo nova tentativa na próxima chamada.
+      probePromise = null;
+      return false;
+    }
     return cached;
   })();
-  return probePromise;
+  const result = await probePromise;
+  // Se decidimos não memoizar (erro transitório), limpar o promise cache.
+  if (cached === null) probePromise = null;
+  return result;
 }
 
 export async function mensagensSelectColumns(): Promise<string> {
@@ -33,3 +48,11 @@ export async function mensagensSelectColumns(): Promise<string> {
 export function getMensagensSelectColumnsSync(): string {
   return cached ? BASE_COLUMNS + EXTRA_COLUMNS : BASE_COLUMNS;
 }
+
+/** Invalida o cache para forçar nova checagem (ex.: depois de um 42703 no select real). */
+export function resetMensagensColumnsCache() {
+  cached = null;
+  probePromise = null;
+}
+
+export const MENSAGENS_BASE_COLUMNS = BASE_COLUMNS;
