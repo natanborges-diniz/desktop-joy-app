@@ -427,6 +427,9 @@ export default function LojaNovaDemanda() {
     if (!fluxoAtivo) return;
 
     // Boleto: precisa ter consulta_cpf aprovada selecionada
+  function irParaRevisao() {
+    if (!fluxoAtivo) return;
+
     if (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada) {
       toast.error("Selecione uma Consulta de CPF aprovada");
       return;
@@ -434,7 +437,6 @@ export default function LojaNovaDemanda() {
 
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
-      // Pula validação de campos travados pelo CPF aprovado (vêm prontos do servidor)
       if (
         fluxoAtivo.chave === "gerar_boleto" &&
         consultaCpfSelecionada &&
@@ -452,7 +454,15 @@ export default function LojaNovaDemanda() {
       }
     }
     setErros(novosErros);
-    if (Object.values(novosErros).some(Boolean)) return;
+    if (Object.values(novosErros).some(Boolean)) {
+      toast.error("Corrija os campos destacados antes de revisar");
+      return;
+    }
+    setRevisando(true);
+  }
+
+  async function enviar() {
+    if (!fluxoAtivo) return;
 
     setEnviando(true);
     const dadosEnvio: Record<string, string> = { ...dados };
@@ -476,6 +486,7 @@ export default function LojaNovaDemanda() {
       return;
     }
     setResultado(data as Resultado);
+    setRevisando(false);
     toast.success(`Solicitação ${(data as Resultado).protocolo} aberta!`);
   }
 
