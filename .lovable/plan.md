@@ -1,22 +1,37 @@
-# Notificações sem botões de ação — corrigir
+## Indicadores de mensagem (estilo WhatsApp)
 
-## Diagnóstico
+Hoje o chat (`ConversaDetail.tsx`) já renderiza um `MessageTicks` ao lado do horário das mensagens enviadas por mim, com 3 estados:
 
-No `NotificacoesList.tsx` o conjunto `TIPOS_COM_ACOES` cobre apenas 3 tipos. As notificações que aparecem **sem botões** na sua tela são do tipo `agendamento_confirmacao` (ex.: "📋 Confirme comparecimento — Bruno", "⚠️ Pendência de confirmação — Gustavo"). Pela mensagem ("Compareceu?"), elas claramente exigem a mesma ação Compareceu / Não compareceu / Venda fechada — só não foram mapeadas.
+- ⏱ `pending` — mensagem otimista (id `tmp-…`), ainda não confirmada pelo servidor
+- ✓ `sent` — gravada no banco, mas `lida = false`
+- ✓✓ azul `read` — destinatário marcou como lida
 
-Resultado: a loja não consegue resolver e a notificação fica eterna na lista, e o badge de pendências nunca zera.
+Mas há dois problemas:
 
-## O que vamos mudar (1 arquivo)
+1. **No chat, o tick fica quase invisível.** O texto do horário usa `text-foreground/55` em mensagens minhas, e o ✓ herda essa opacidade — em bolha clara some, em bolha escura também. Em telas pequenas o usuário simplesmente não nota.
+2. **Na lista de conversas (`ConversasSidebar.tsx`), não existe nenhum tick.** Quando a última mensagem é minha, mostra só "Você: …" sem indicar se foi entregue/lida — diferente do WhatsApp.
 
-**`src/pages/NotificacoesList.tsx`**
+### O que vamos fazer
 
-1. Adicionar `"agendamento_confirmacao"` ao set `TIPOS_AGENDAMENTO` e ao `TIPOS_COM_ACOES` — assim os 3 botões (Compareceu / Não compareceu / Venda fechada) aparecem nessas linhas, exatamente como já aparecem nas cobranças.
-2. Adicionar caso no `tipoBadge` para `"agendamento_confirmacao"` → label "Confirme comparecimento", tom âmbar (mesma família visual de cobrança).
-3. **Fallback genérico**: para qualquer outro `tipo` desconhecido que tenha `referencia_id` E cujo título/mensagem contenha "compareceu" / "comparecimento", também renderizar os botões. Isso protege outras lojas se aparecerem novos tipos parecidos sem o front saber.
-4. **Botão "Marcar como lida" mais visível** em qualquer notificação sem ação (substituir a bolinha azul por um botão pequeno com texto "Marcar como lida"), para que mesmo notificações puramente informativas (`agendamento_novo_loja`, etc.) possam ser zeradas com um clique óbvio.
+**A. Reforçar ticks no chat (`src/pages/ConversaDetail.tsx`)**
+- Mostrar o tick fora da `<p>` de horário, com cor própria:
+  - `pending` → cinza claro
+  - `sent` → cinza médio (✓ único, sem opacidade)
+  - `read` → ✓✓ em azul WhatsApp (`text-sky-500`, já existe, mas garantir contraste)
+- Aumentar levemente o ícone (h-3.5 → h-4) para ficar legível em mobile.
+- Manter o `Clock3` para `pending`.
 
-## Fora de escopo
+**B. Adicionar ticks no preview da sidebar (`src/components/ConversasSidebar.tsx`)**
+- Quando `c.lastMessage.remetente_id === user.id`, antes do "Você:" renderizar o mesmo `MessageTicks` (extraído para um arquivo compartilhado, ex.: `src/components/MessageTicks.tsx`).
+- Estado vem direto de `c.lastMessage.lida` (sent/read). Sem `pending` aqui (sidebar não tem otimista).
 
-- Não vou apagar registros antigos do banco (você falou em "eliminá-las" — interpretei como "permitir que sejam baixadas/resolvidas", não deletar histórico). Se quiser DELETE em massa das antigas (`agendamento_confirmacao` com `created_at < hoje`), me diga e faço uma migration separada.
-- Não toco na edge function `loja-acao-agendamento`; ela já aceita `agendamento_id` e os 3 acoes existentes — funciona pro tipo novo sem mudança.
-- Sem mudanças em RLS / schema.
+**C. Reuso**
+- Mover o componente `MessageTicks` de dentro de `ConversaDetail.tsx` para `src/components/MessageTicks.tsx` e importar nos dois lugares.
+
+### Fora de escopo
+- Estado "entregue" separado de "enviado" (o schema só tem `lida` boolean — não dá para diferenciar "entregue ao device" de "salvo no servidor" sem mudar o banco).
+- Mudanças no schema, RLS ou backend.
+- Notificações/avisos da loja (já tratados em mensagens anteriores).
+
+### Confirmação
+Posso prosseguir com A+B+C? Ou você quer só a sidebar (B), só reforçar o chat (A), ou prefere também um estado "entregue" distinto (exigiria adicionar uma coluna `entregue_at` em `mensagens_internas`)?

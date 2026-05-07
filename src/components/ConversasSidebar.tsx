@@ -11,6 +11,7 @@ import { Loader2, Search, MessageSquare, Plus, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 import { usePresence } from "@/hooks/usePresence";
+import { MessageTicks } from "@/components/MessageTicks";
 
 type Conversation = {
   otherId: string;
@@ -236,7 +237,13 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                           })}
                         </time>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {c.lastMessage.remetente_id === user?.id && (
+                          <MessageTicks
+                            status={c.lastMessage.lida ? "read" : "sent"}
+                            className="shrink-0"
+                          />
+                        )}
                         <p
                           className={cn(
                             "truncate text-sm",
@@ -245,7 +252,6 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                               : "text-muted-foreground",
                           )}
                         >
-                          {c.lastMessage.remetente_id === user?.id ? "Você: " : ""}
                           {c.lastMessage.conteudo
                             || (c.lastMessage.anexo_tipo?.startsWith("image/")
                               ? "📷 Foto"

@@ -15,15 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   Camera,
-  Check,
-  CheckCheck,
-  Clock3,
   FileText,
   Loader2,
   Paperclip,
   Send,
   X,
 } from "lucide-react";
+import { MessageTicks } from "@/components/MessageTicks";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
@@ -410,7 +408,12 @@ export default function ConversaDetail() {
                           )}
                         >
                           <span>{format(new Date(m.created_at), "HH:mm")}</span>
-                          {mine && <MessageTicks status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"} />}
+                          {mine && (
+                            <MessageTicks
+                              status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"}
+                              className="ml-0.5"
+                            />
+                          )}
                         </p>
                       </div>
                     </div>
@@ -528,10 +531,4 @@ export default function ConversaDetail() {
       </form>
     </div>
   );
-}
-
-function MessageTicks({ status }: { status: "pending" | "sent" | "read" }) {
-  if (status === "pending") return <Clock3 className="h-3 w-3 opacity-70" aria-label="Enviando" />;
-  if (status === "read") return <CheckCheck className="h-3.5 w-3.5 text-sky-500" aria-label="Lida" />;
-  return <Check className="h-3.5 w-3.5 opacity-70" aria-label="Enviada" />;
 }
