@@ -408,7 +408,12 @@ export default function ConversaDetail() {
                           )}
                         >
                           <span>{format(new Date(m.created_at), "HH:mm")}</span>
-                          {mine && <MessageTicks status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"} />}
+                          {mine && (
+                            <MessageTicks
+                              status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"}
+                              className="ml-0.5"
+                            />
+                          )}
                         </p>
                       </div>
                     </div>
