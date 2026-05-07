@@ -50,15 +50,28 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
     async function load() {
       setLoading(true);
       const cols = await mensagensSelectColumns();
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("mensagens_internas")
         .select(cols)
         .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(500);
 
+      if (error && (error.code === "42703" || /editada_em|apagada_em/.test(error.message ?? ""))) {
+        // Colunas extra não existem: invalida cache e tenta de novo só com as base.
+        console.warn("[ConversasSidebar] colunas extras ausentes, refazendo com base", error);
+        resetMensagensColumnsCache();
+        ({ data, error } = await supabase
+          .from("mensagens_internas")
+          .select(MENSAGENS_BASE_COLUMNS)
+          .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
+          .order("created_at", { ascending: false })
+          .limit(500));
+      }
+
       if (!active) return;
       if (error) {
+        console.error("[ConversasSidebar] erro carregando mensagens", error);
         setLoading(false);
         return;
       }
