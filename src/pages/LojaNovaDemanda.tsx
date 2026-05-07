@@ -957,18 +957,14 @@ export default function LojaNovaDemanda() {
               {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) && (
                 <Button
                   className="w-full"
-                  onClick={enviar}
+                  onClick={irParaRevisao}
                   disabled={
                     enviando ||
                     (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada)
                   }
                 >
-                  {enviando ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Enviar solicitação
+                  <ChevronRight className="mr-2 h-4 w-4" />
+                  Revisar dados
                 </Button>
               )}
             </div>
