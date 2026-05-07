@@ -495,11 +495,27 @@ export default function LojaNovaDemanda() {
 
   const titulo = resultado
     ? "Solicitação enviada"
-    : fluxoAtivo
-      ? `${fluxoAtivo.nome}`
-      : nivelAtual
-        ? `${nivelAtual.emoji ?? ""} ${nivelAtual.titulo}`
-        : "Nova demanda";
+    : revisando
+      ? "Revisar antes de enviar"
+      : fluxoAtivo
+        ? `${fluxoAtivo.nome}`
+        : nivelAtual
+          ? `${nivelAtual.emoji ?? ""} ${nivelAtual.titulo}`
+          : "Nova demanda";
+
+  function formatarValorEtapa(et: Etapa, raw: string | undefined): string {
+    const v = (raw ?? "").trim();
+    const tef = tipoEfetivo(et);
+    if (!v && tef !== "imagem") return "—";
+    if (et.tipo_input === "cpf") return mascararCpf(v);
+    if (et.tipo_input === "documento") {
+      const d = v.replace(/\D/g, "");
+      if (d.length === 11) return mascararCpf(v);
+      return v;
+    }
+    if (et.tipo_input === "decimal" || et.campo === "valor") return formatarBRL(v);
+    return v;
+  }
 
   const lojaTravada = !!lojaNome && (tipoUsuario === "loja" || tipoUsuario === "colaborador");
 
