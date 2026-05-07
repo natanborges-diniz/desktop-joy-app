@@ -362,6 +362,11 @@ export default function LojaNovaDemanda() {
       setFluxoAtivo(null);
       setConsultaCpfSelecionada(null);
       setCpfsAprovados(null);
+      setRevisando(false);
+      return;
+    }
+    if (revisando) {
+      setRevisando(false);
       return;
     }
     if (fluxoAtivo) {
