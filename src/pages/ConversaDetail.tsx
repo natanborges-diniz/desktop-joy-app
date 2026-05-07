@@ -493,7 +493,7 @@ export default function ConversaDetail() {
                   const hasAnexo = !!m.anexo_url && !apagada;
                   const isEditing = editingId === m.id;
                   const isTmp = m.id.startsWith("tmp-");
-                  const podeAcoes = mine && !apagada && !isTmp;
+                  const podeAcoes = mine && !apagada && !isTmp && editAvailable;
                   return (
                     <div
                       key={m.id}
