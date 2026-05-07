@@ -166,7 +166,7 @@ export default function ConversaDetail() {
             (m.remetente_id === otherId && m.destinatario_id === user.id);
           if (!involves) return;
           setMessages((prev) =>
-            prev.map((x) => (x.id === m.id ? { ...x, lida: m.lida } : x)),
+            prev.map((x) => (x.id === m.id ? { ...x, ...m } : x)),
           );
         },
       )
