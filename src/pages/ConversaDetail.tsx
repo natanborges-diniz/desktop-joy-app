@@ -300,7 +300,7 @@ export default function ConversaDetail() {
     }
 
     setMessages((prev) =>
-      prev.map((m) => (m.id === optimistic.id ? (data as MensagemInterna) : m)),
+      prev.map((m) => (m.id === optimistic.id ? ((data as unknown) as MensagemInterna) : m)),
     );
   }
 
