@@ -281,6 +281,7 @@ export default function LojaNovaDemanda() {
     setErros({});
     setConsultaCpfSelecionada(null);
     setCpfsAprovados(null);
+    setRevisando(false);
 
     // Fluxo "gerar_boleto": só permite seguir com base em uma consulta_cpf aprovada
     if (fluxo.chave === "gerar_boleto" && lojaNome) {
