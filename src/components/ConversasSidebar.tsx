@@ -237,7 +237,6 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                           })}
                         </time>
                       </div>
-                      <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5">
                         {c.lastMessage.remetente_id === user?.id && (
                           <MessageTicks
