@@ -81,17 +81,19 @@ export default function ConversaDetail() {
   const isOtherOnline = otherId ? onlineIds.has(otherId) : false;
   const { otherTyping, sendTyping } = useTypingIndicator(user?.id, otherId);
 
+  const [editAvailable, setEditAvailable] = useState(false);
+
   useEffect(() => {
     if (!user || !otherId) return;
     let active = true;
 
     async function load() {
+      const cols = await mensagensSelectColumns();
+      if (active) setEditAvailable(await hasEditDeleteColumns());
       const [{ data: msgs }, { data: prof }] = await Promise.all([
         supabase
           .from("mensagens_internas")
-          .select(
-            "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em",
-          )
+          .select(cols)
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
           )
