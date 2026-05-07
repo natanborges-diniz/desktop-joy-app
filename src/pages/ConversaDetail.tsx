@@ -17,11 +17,32 @@ import {
   Camera,
   FileText,
   Loader2,
+  MoreVertical,
   Paperclip,
+  Pencil,
   Send,
+  Trash2,
   X,
+  Check,
+  Ban,
 } from "lucide-react";
 import { MessageTicks } from "@/components/MessageTicks";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
@@ -68,7 +89,7 @@ export default function ConversaDetail() {
         supabase
           .from("mensagens_internas")
           .select(
-            "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo",
+            "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em",
           )
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
@@ -145,7 +166,7 @@ export default function ConversaDetail() {
             (m.remetente_id === otherId && m.destinatario_id === user.id);
           if (!involves) return;
           setMessages((prev) =>
-            prev.map((x) => (x.id === m.id ? { ...x, lida: m.lida } : x)),
+            prev.map((x) => (x.id === m.id ? { ...x, ...m } : x)),
           );
         },
       )
@@ -263,7 +284,7 @@ export default function ConversaDetail() {
         anexo_tipo,
       })
       .select(
-        "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo",
+        "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em",
       )
       .single();
 
@@ -291,6 +312,112 @@ export default function ConversaDetail() {
   }
 
   const canSend = (!!text.trim() || !!pendingFile) && !sending;
+
+  // ===== Editar / Apagar =====
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  function startEdit(m: MensagemInterna) {
+    setEditingId(m.id);
+    setEditingText(m.conteudo ?? "");
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingText("");
+  }
+  async function saveEdit() {
+    if (!editingId) return;
+    const novo = editingText.trim();
+    const original = messages.find((x) => x.id === editingId);
+    if (!original) return cancelEdit();
+    if (!novo) {
+      toast.error("A mensagem não pode ficar vazia.");
+      return;
+    }
+    if (novo === (original.conteudo ?? "")) {
+      cancelEdit();
+      return;
+    }
+    setSavingEdit(true);
+    const nowIso = new Date().toISOString();
+    setMessages((prev) =>
+      prev.map((x) =>
+        x.id === editingId ? { ...x, conteudo: novo, editada_em: nowIso } : x,
+      ),
+    );
+    const { error } = await supabase
+      .from("mensagens_internas")
+      .update({ conteudo: novo, editada_em: nowIso })
+      .eq("id", editingId);
+    setSavingEdit(false);
+    if (error) {
+      setMessages((prev) =>
+        prev.map((x) =>
+          x.id === editingId
+            ? { ...x, conteudo: original.conteudo, editada_em: original.editada_em }
+            : x,
+        ),
+      );
+      toast.error("Não foi possível editar. Tente novamente.");
+      return;
+    }
+    cancelEdit();
+  }
+
+  function extrairPathDoAnexo(url: string): string | null {
+    const marker = `/object/public/${ANEXOS_BUCKET}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return decodeURIComponent(url.slice(idx + marker.length));
+  }
+
+  async function confirmarApagar() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    const original = messages.find((x) => x.id === id);
+    if (!original) {
+      setConfirmDeleteId(null);
+      return;
+    }
+    setDeleting(true);
+    const nowIso = new Date().toISOString();
+    setMessages((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? { ...x, apagada_em: nowIso, conteudo: "", anexo_url: null, anexo_tipo: null }
+          : x,
+      ),
+    );
+    if (original.anexo_url) {
+      const path = extrairPathDoAnexo(original.anexo_url);
+      if (path) {
+        try {
+          await supabase.storage.from(ANEXOS_BUCKET).remove([path]);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    const { error } = await supabase
+      .from("mensagens_internas")
+      .update({
+        apagada_em: nowIso,
+        conteudo: "",
+        anexo_url: null,
+        anexo_tipo: null,
+      })
+      .eq("id", id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (error) {
+      setMessages((prev) => prev.map((x) => (x.id === id ? original : x)));
+      toast.error("Não foi possível apagar. Tente novamente.");
+    }
+  }
+
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
@@ -360,46 +487,140 @@ export default function ConversaDetail() {
                 </div>
                 {g.items.map((m) => {
                   const mine = m.remetente_id === user?.id;
-                  const hasAnexo = !!m.anexo_url;
+                  const apagada = !!m.apagada_em;
+                  const hasAnexo = !!m.anexo_url && !apagada;
+                  const isEditing = editingId === m.id;
+                  const isTmp = m.id.startsWith("tmp-");
+                  const podeAcoes = mine && !apagada && !isTmp;
                   return (
-                    <div key={m.id} className={cn("flex animate-slide-up", mine ? "justify-end" : "justify-start")}>
+                    <div
+                      key={m.id}
+                      className={cn(
+                        "group flex animate-slide-up items-center gap-1",
+                        mine ? "justify-end" : "justify-start",
+                      )}
+                    >
+                      {mine && podeAcoes && !isEditing && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Ações da mensagem"
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground opacity-100 transition hover:bg-surface md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" side="top">
+                            {(m.conteudo ?? "").trim().length > 0 && (
+                              <DropdownMenuItem onSelect={() => startEdit(m)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onSelect={() => setConfirmDeleteId(m.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Apagar mensagem
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                       <div
                         className={cn(
                           "max-w-[70%] overflow-hidden px-3 py-2 text-sm shadow-soft md:max-w-[55%]",
                           mine ? "bubble-out" : "bubble-in",
+                          apagada && "italic opacity-70",
                         )}
                       >
-                        {hasAnexo && isImage(m.anexo_tipo) && (
-                          <a
-                            href={m.anexo_url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mb-1 block -mx-1 -mt-1"
-                          >
-                            <img
-                              src={m.anexo_url!}
-                              alt="Anexo"
-                              loading="lazy"
-                              className="max-h-72 w-full rounded-lg object-cover"
+                        {apagada ? (
+                          <p className="flex items-center gap-1.5 text-muted-foreground">
+                            <Ban className="h-3.5 w-3.5" />
+                            Mensagem apagada
+                          </p>
+                        ) : isEditing ? (
+                          <div className="flex flex-col gap-2">
+                            <Textarea
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  void saveEdit();
+                                }
+                                if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  cancelEdit();
+                                }
+                              }}
+                              autoFocus
+                              rows={2}
+                              className="min-w-[220px] resize-none rounded-lg border-border bg-background text-foreground"
                             />
-                          </a>
-                        )}
-                        {hasAnexo && !isImage(m.anexo_tipo) && (
-                          <a
-                            href={m.anexo_url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                              "mb-1 flex items-center gap-2 rounded-lg p-2 text-xs underline-offset-2 hover:underline",
-                              mine ? "bg-foreground/5" : "bg-surface-muted",
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={cancelEdit}
+                                disabled={savingEdit}
+                                className="h-7 px-2"
+                              >
+                                <X className="h-3.5 w-3.5" /> Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => void saveEdit()}
+                                disabled={savingEdit}
+                                className="h-7 px-2"
+                              >
+                                {savingEdit ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}{" "}
+                                Salvar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {hasAnexo && isImage(m.anexo_tipo) && (
+                              <a
+                                href={m.anexo_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mb-1 block -mx-1 -mt-1"
+                              >
+                                <img
+                                  src={m.anexo_url!}
+                                  alt="Anexo"
+                                  loading="lazy"
+                                  className="max-h-72 w-full rounded-lg object-cover"
+                                />
+                              </a>
                             )}
-                          >
-                            <FileText className="h-4 w-4 shrink-0" />
-                            <span className="truncate">Abrir anexo</span>
-                          </a>
-                        )}
-                        {m.conteudo && (
-                          <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
+                            {hasAnexo && !isImage(m.anexo_tipo) && (
+                              <a
+                                href={m.anexo_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={cn(
+                                  "mb-1 flex items-center gap-2 rounded-lg p-2 text-xs underline-offset-2 hover:underline",
+                                  mine ? "bg-foreground/5" : "bg-surface-muted",
+                                )}
+                              >
+                                <FileText className="h-4 w-4 shrink-0" />
+                                <span className="truncate">Abrir anexo</span>
+                              </a>
+                            )}
+                            {m.conteudo && (
+                              <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
+                            )}
+                          </>
                         )}
                         <p
                           className={cn(
@@ -407,10 +628,13 @@ export default function ConversaDetail() {
                             mine ? "text-foreground/55" : "text-muted-foreground",
                           )}
                         >
+                          {!apagada && m.editada_em && !isEditing && (
+                            <span className="italic">editada</span>
+                          )}
                           <span>{format(new Date(m.created_at), "HH:mm")}</span>
-                          {mine && (
+                          {mine && !apagada && (
                             <MessageTicks
-                              status={m.id.startsWith("tmp-") ? "pending" : m.lida ? "read" : "sent"}
+                              status={isTmp ? "pending" : m.lida ? "read" : "sent"}
                               className="ml-0.5"
                             />
                           )}
@@ -529,6 +753,39 @@ export default function ConversaDetail() {
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
+
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(o) => !o && !deleting && setConfirmDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar mensagem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A mensagem será apagada para você e para o destinatário. Essa ação
+              não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmarApagar();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

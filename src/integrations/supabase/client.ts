@@ -40,6 +40,8 @@ export type MensagemInterna = {
   created_at: string;
   anexo_url?: string | null;
   anexo_tipo?: string | null;
+  editada_em?: string | null;
+  apagada_em?: string | null;
 };
 
 export const ANEXOS_BUCKET = "mensagens-anexos";
