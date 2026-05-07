@@ -238,7 +238,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                         </time>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {c.lastMessage.remetente_id === user?.id && (
+                        {c.lastMessage.remetente_id === user?.id && !c.lastMessage.apagada_em && (
                           <MessageTicks
                             status={c.lastMessage.lida ? "read" : "sent"}
                             className="shrink-0"
@@ -247,17 +247,21 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                         <p
                           className={cn(
                             "truncate text-sm",
-                            c.unread > 0
-                              ? "font-medium text-foreground"
-                              : "text-muted-foreground",
+                            c.lastMessage.apagada_em
+                              ? "italic text-muted-foreground"
+                              : c.unread > 0
+                                ? "font-medium text-foreground"
+                                : "text-muted-foreground",
                           )}
                         >
-                          {c.lastMessage.conteudo
-                            || (c.lastMessage.anexo_tipo?.startsWith("image/")
-                              ? "📷 Foto"
-                              : c.lastMessage.anexo_url
-                                ? "📎 Anexo"
-                                : "")}
+                          {c.lastMessage.apagada_em
+                            ? "🚫 Mensagem apagada"
+                            : c.lastMessage.conteudo
+                              || (c.lastMessage.anexo_tipo?.startsWith("image/")
+                                ? "📷 Foto"
+                                : c.lastMessage.anexo_url
+                                  ? "📎 Anexo"
+                                  : "")}
                         </p>
                         {c.unread > 0 && (
                           <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
