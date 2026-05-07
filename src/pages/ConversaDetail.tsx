@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
 import { usePresence } from "@/hooks/usePresence";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { mensagensSelectColumns, hasEditDeleteColumns } from "@/lib/mensagensColumns";
 
 const MAX_FILE_MB = 10;
 const ACCEPTED_TYPES = "image/*,application/pdf";
