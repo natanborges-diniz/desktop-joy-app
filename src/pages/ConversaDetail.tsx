@@ -107,11 +107,12 @@ export default function ConversaDetail() {
       ]);
 
       if (!active) return;
-      setMessages((msgs ?? []) as MensagemInterna[]);
+      const msgsArr = ((msgs ?? []) as unknown) as MensagemInterna[];
+      setMessages(msgsArr);
       setOther((prof ?? null) as Profile | null);
       setLoading(false);
 
-      const unread = (msgs ?? []).filter(
+      const unread = msgsArr.filter(
         (m) => m.destinatario_id === user!.id && !m.lida,
       );
       if (unread.length > 0) {
