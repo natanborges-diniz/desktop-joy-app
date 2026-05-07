@@ -186,6 +186,7 @@ export default function LojaNovaDemanda() {
   const [cpfsAprovados, setCpfsAprovados] = useState<CpfAprovado[] | null>(null);
   const [carregandoCpfs, setCarregandoCpfs] = useState(false);
   const [consultaCpfSelecionada, setConsultaCpfSelecionada] = useState<string | null>(null);
+  const [revisando, setRevisando] = useState(false);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Opção de menu para o fluxo "consulta_cpf" (usada pelo card de bloqueio do boleto)
@@ -280,6 +281,7 @@ export default function LojaNovaDemanda() {
     setErros({});
     setConsultaCpfSelecionada(null);
     setCpfsAprovados(null);
+    setRevisando(false);
 
     // Fluxo "gerar_boleto": só permite seguir com base em uma consulta_cpf aprovada
     if (fluxo.chave === "gerar_boleto" && lojaNome) {
@@ -361,6 +363,11 @@ export default function LojaNovaDemanda() {
       setFluxoAtivo(null);
       setConsultaCpfSelecionada(null);
       setCpfsAprovados(null);
+      setRevisando(false);
+      return;
+    }
+    if (revisando) {
+      setRevisando(false);
       return;
     }
     if (fluxoAtivo) {
@@ -417,10 +424,9 @@ export default function LojaNovaDemanda() {
     });
   }
 
-  async function enviar() {
+  function irParaRevisao() {
     if (!fluxoAtivo) return;
 
-    // Boleto: precisa ter consulta_cpf aprovada selecionada
     if (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada) {
       toast.error("Selecione uma Consulta de CPF aprovada");
       return;
@@ -428,7 +434,6 @@ export default function LojaNovaDemanda() {
 
     const novosErros: Record<string, string | null> = {};
     for (const et of fluxoAtivo.etapas) {
-      // Pula validação de campos travados pelo CPF aprovado (vêm prontos do servidor)
       if (
         fluxoAtivo.chave === "gerar_boleto" &&
         consultaCpfSelecionada &&
@@ -446,7 +451,15 @@ export default function LojaNovaDemanda() {
       }
     }
     setErros(novosErros);
-    if (Object.values(novosErros).some(Boolean)) return;
+    if (Object.values(novosErros).some(Boolean)) {
+      toast.error("Corrija os campos destacados antes de revisar");
+      return;
+    }
+    setRevisando(true);
+  }
+
+  async function enviar() {
+    if (!fluxoAtivo) return;
 
     setEnviando(true);
     const dadosEnvio: Record<string, string> = { ...dados };
@@ -470,6 +483,7 @@ export default function LojaNovaDemanda() {
       return;
     }
     setResultado(data as Resultado);
+    setRevisando(false);
     toast.success(`Solicitação ${(data as Resultado).protocolo} aberta!`);
   }
 
@@ -482,11 +496,27 @@ export default function LojaNovaDemanda() {
 
   const titulo = resultado
     ? "Solicitação enviada"
-    : fluxoAtivo
-      ? `${fluxoAtivo.nome}`
-      : nivelAtual
-        ? `${nivelAtual.emoji ?? ""} ${nivelAtual.titulo}`
-        : "Nova demanda";
+    : revisando
+      ? "Revisar antes de enviar"
+      : fluxoAtivo
+        ? `${fluxoAtivo.nome}`
+        : nivelAtual
+          ? `${nivelAtual.emoji ?? ""} ${nivelAtual.titulo}`
+          : "Nova demanda";
+
+  function formatarValorEtapa(et: Etapa, raw: string | undefined): string {
+    const v = (raw ?? "").trim();
+    const tef = tipoEfetivo(et);
+    if (!v && tef !== "imagem") return "—";
+    if (et.tipo_input === "cpf") return mascararCpf(v);
+    if (et.tipo_input === "documento") {
+      const d = v.replace(/\D/g, "");
+      if (d.length === 11) return mascararCpf(v);
+      return v;
+    }
+    if (et.tipo_input === "decimal" || et.campo === "valor") return formatarBRL(v);
+    return v;
+  }
 
   const lojaTravada = !!lojaNome && (tipoUsuario === "loja" || tipoUsuario === "colaborador");
 
@@ -601,6 +631,107 @@ export default function LojaNovaDemanda() {
           ) : loading ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : fluxoAtivo && revisando ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
+                Confira os dados antes de enviar. Se algo estiver errado, volte e edite.
+              </div>
+
+              {fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada && cpfsAprovados && (() => {
+                const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
+                if (!sel) return null;
+                return (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      CPF aprovado selecionado
+                    </span>
+                    <div className="mt-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {sel.cliente ?? "—"}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          CPF {mascararCpf(sel.cpf)} · aprovado em{" "}
+                          {formatarDataCurta(sel.created_at)}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-primary">
+                        {formatarBRL(sel.valor)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+                {fluxoAtivo.etapas.map((et) => {
+                  const label = et.label ?? et.mensagem ?? et.campo;
+                  const tef = tipoEfetivo(et);
+                  const arquivos = anexos[et.campo] ?? [];
+                  return (
+                    <div key={et.campo} className="px-4 py-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </p>
+                      {tef === "imagem" ? (
+                        arquivos.length === 0 ? (
+                          <p className="mt-0.5 text-sm text-muted-foreground">—</p>
+                        ) : (
+                          <div className="mt-1.5 flex flex-wrap gap-2">
+                            {arquivos.map((a, i) =>
+                              a.mime_type?.startsWith("image/") ? (
+                                <img
+                                  key={i}
+                                  src={a.url}
+                                  alt={a.nome}
+                                  className="h-14 w-14 rounded-md border border-border object-cover"
+                                />
+                              ) : (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  {a.nome}
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        )
+                      ) : (
+                        <p className="mt-0.5 break-words text-sm text-foreground">
+                          {formatarValorEtapa(et, dados[et.campo])}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setRevisando(false)}
+                  disabled={enviando}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar e editar
+                </Button>
+                <Button
+                  className="w-full flex-1"
+                  onClick={enviar}
+                  disabled={enviando}
+                >
+                  {enviando ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Confirmar e gerar
+                </Button>
+              </div>
             </div>
           ) : fluxoAtivo ? (
             <div className="space-y-4">
@@ -928,18 +1059,14 @@ export default function LojaNovaDemanda() {
               {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) && (
                 <Button
                   className="w-full"
-                  onClick={enviar}
+                  onClick={irParaRevisao}
                   disabled={
                     enviando ||
                     (fluxoAtivo.chave === "gerar_boleto" && !consultaCpfSelecionada)
                   }
                 >
-                  {enviando ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Enviar solicitação
+                  <ChevronRight className="mr-2 h-4 w-4" />
+                  Revisar dados
                 </Button>
               )}
             </div>
