@@ -284,7 +284,7 @@ export default function ConversaDetail() {
         anexo_tipo,
       })
       .select(
-        "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo",
+        "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em",
       )
       .single();
 
