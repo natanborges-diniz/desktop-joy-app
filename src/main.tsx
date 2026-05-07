@@ -30,7 +30,25 @@ if (isInIframe || isPreviewHost) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js", { type: "classic" })
+      .then((registration) => {
+        // Checa atualizações sempre que a aba ganha foco — importante no iOS PWA.
+        const checkForUpdate = () => {
+          registration.update().catch(() => {});
+        };
+        window.addEventListener("focus", checkForUpdate);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") checkForUpdate();
+        });
+      })
       .catch((err) => console.error("[SW] register failed:", err));
+
+    // Quando um novo SW assume controle, recarrega para pegar bundle novo.
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    });
   });
 }
 

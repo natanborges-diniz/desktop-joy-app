@@ -41,6 +41,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todas" | "nao_lidas">("todas");
   const [novaOpen, setNovaOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const onlineIds = usePresence();
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
 
     async function load() {
       setLoading(true);
+      setLoadError(null);
       const orFilter = `remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`;
 
       async function runQuery(cols: string) {
@@ -76,6 +78,9 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       if (!active) return;
       if (res.error) {
         console.error("[ConversasSidebar] erro carregando mensagens", res.error);
+        setLoadError(
+          `${res.error.code ?? "erro"}: ${res.error.message ?? "Falha ao carregar"}`,
+        );
         setLoading(false);
         return;
       }
@@ -228,7 +233,16 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : conversations.length === 0 ? (
-          <EmptyState onNova={showEmptyCta ? () => setNovaOpen(true) : undefined} />
+          <EmptyState
+            onNova={showEmptyCta ? () => setNovaOpen(true) : undefined}
+            reason={
+              !user
+                ? "Sem sessão ativa. Faça login novamente."
+                : loadError
+                  ? `Erro ao carregar conversas (${loadError})`
+                  : null
+            }
+          />
         ) : (
           <ul className="divide-y divide-border">
             {conversations.map((c) => {
@@ -318,17 +332,29 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   );
 }
 
-function EmptyState({ onNova }: { onNova?: () => void }) {
+function EmptyState({ onNova, reason }: { onNova?: () => void; reason?: string | null }) {
+  const isError = !!reason;
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
         <MessageSquare className="h-7 w-7" />
       </div>
-      <h2 className="text-base font-semibold text-foreground">Nenhuma conversa ainda</h2>
+      <h2 className="text-base font-semibold text-foreground">
+        {isError ? "Não foi possível carregar" : "Nenhuma conversa ainda"}
+      </h2>
       <p className="max-w-xs text-sm text-muted-foreground">
-        Comece uma nova conversa com um colega.
+        {reason ?? "Comece uma nova conversa com um colega."}
       </p>
-      {onNova && (
+      {isError && (
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+          className="mt-2"
+        >
+          Tentar novamente
+        </Button>
+      )}
+      {!isError && onNova && (
         <Button onClick={onNova} className="mt-2 gap-2">
           <Plus className="h-4 w-4" />
           Nova conversa
