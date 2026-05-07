@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 import { usePresence } from "@/hooks/usePresence";
 import { MessageTicks } from "@/components/MessageTicks";
+import { mensagensSelectColumns } from "@/lib/mensagensColumns";
 
 type Conversation = {
   otherId: string;
@@ -44,9 +45,10 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
 
     async function load() {
       setLoading(true);
+      const cols = await mensagensSelectColumns();
       const { data, error } = await supabase
         .from("mensagens_internas")
-        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em")
+        .select(cols)
         .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(500);
@@ -56,7 +58,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
         setLoading(false);
         return;
       }
-      const msgs = (data ?? []) as MensagemInterna[];
+      const msgs = ((data ?? []) as unknown) as MensagemInterna[];
       setMessages(msgs);
 
       const otherIds = Array.from(

@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
 import { usePresence } from "@/hooks/usePresence";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { mensagensSelectColumns, hasEditDeleteColumns } from "@/lib/mensagensColumns";
 
 const MAX_FILE_MB = 10;
 const ACCEPTED_TYPES = "image/*,application/pdf";
@@ -80,17 +81,19 @@ export default function ConversaDetail() {
   const isOtherOnline = otherId ? onlineIds.has(otherId) : false;
   const { otherTyping, sendTyping } = useTypingIndicator(user?.id, otherId);
 
+  const [editAvailable, setEditAvailable] = useState(false);
+
   useEffect(() => {
     if (!user || !otherId) return;
     let active = true;
 
     async function load() {
+      const cols = await mensagensSelectColumns();
+      if (active) setEditAvailable(await hasEditDeleteColumns());
       const [{ data: msgs }, { data: prof }] = await Promise.all([
         supabase
           .from("mensagens_internas")
-          .select(
-            "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em",
-          )
+          .select(cols)
           .or(
             `and(remetente_id.eq.${user!.id},destinatario_id.eq.${otherId}),and(remetente_id.eq.${otherId},destinatario_id.eq.${user!.id})`,
           )
@@ -104,11 +107,12 @@ export default function ConversaDetail() {
       ]);
 
       if (!active) return;
-      setMessages((msgs ?? []) as MensagemInterna[]);
+      const msgsArr = ((msgs ?? []) as unknown) as MensagemInterna[];
+      setMessages(msgsArr);
       setOther((prof ?? null) as Profile | null);
       setLoading(false);
 
-      const unread = (msgs ?? []).filter(
+      const unread = msgsArr.filter(
         (m) => m.destinatario_id === user!.id && !m.lida,
       );
       if (unread.length > 0) {
@@ -283,9 +287,7 @@ export default function ConversaDetail() {
         anexo_url,
         anexo_tipo,
       })
-      .select(
-        "id,conversa_id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em",
-      )
+      .select(await mensagensSelectColumns())
       .single();
 
     setSending(false);
@@ -298,7 +300,7 @@ export default function ConversaDetail() {
     }
 
     setMessages((prev) =>
-      prev.map((m) => (m.id === optimistic.id ? (data as MensagemInterna) : m)),
+      prev.map((m) => (m.id === optimistic.id ? ((data as unknown) as MensagemInterna) : m)),
     );
   }
 
@@ -491,7 +493,7 @@ export default function ConversaDetail() {
                   const hasAnexo = !!m.anexo_url && !apagada;
                   const isEditing = editingId === m.id;
                   const isTmp = m.id.startsWith("tmp-");
-                  const podeAcoes = mine && !apagada && !isTmp;
+                  const podeAcoes = mine && !apagada && !isTmp && editAvailable;
                   return (
                     <div
                       key={m.id}
