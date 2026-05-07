@@ -17,11 +17,32 @@ import {
   Camera,
   FileText,
   Loader2,
+  MoreVertical,
   Paperclip,
+  Pencil,
   Send,
+  Trash2,
   X,
+  Check,
+  Ban,
 } from "lucide-react";
 import { MessageTicks } from "@/components/MessageTicks";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { makeConversaId } from "@/lib/conversa";
