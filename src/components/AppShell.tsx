@@ -8,6 +8,7 @@ import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
+import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 
 type NavItem = {
   to: string;
