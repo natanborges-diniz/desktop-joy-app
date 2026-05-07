@@ -46,7 +46,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       setLoading(true);
       const { data, error } = await supabase
         .from("mensagens_internas")
-        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo")
+        .select("id,remetente_id,destinatario_id,conteudo,lida,created_at,anexo_url,anexo_tipo,editada_em,apagada_em")
         .or(`remetente_id.eq.${user!.id},destinatario_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(500);
