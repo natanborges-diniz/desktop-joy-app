@@ -1,37 +1,42 @@
-## Indicadores de mensagem (estilo WhatsApp)
+## Objetivo
 
-Hoje o chat (`ConversaDetail.tsx`) já renderiza um `MessageTicks` ao lado do horário das mensagens enviadas por mim, com 3 estados:
+Adicionar uma etapa de **revisão inline** em `LojaNovaDemanda.tsx` para que, ao clicar em **"Enviar solicitação"**, o usuário veja um resumo de todos os dados preenchidos e possa **voltar e editar** ou **confirmar e gerar** — válido para todos os fluxos (incluindo `gerar_boleto`).
 
-- ⏱ `pending` — mensagem otimista (id `tmp-…`), ainda não confirmada pelo servidor
-- ✓ `sent` — gravada no banco, mas `lida = false`
-- ✓✓ azul `read` — destinatário marcou como lida
+## Comportamento
 
-Mas há dois problemas:
+Fluxo atual: formulário → clica Enviar → chama edge function → tela de resultado.
 
-1. **No chat, o tick fica quase invisível.** O texto do horário usa `text-foreground/55` em mensagens minhas, e o ✓ herda essa opacidade — em bolha clara some, em bolha escura também. Em telas pequenas o usuário simplesmente não nota.
-2. **Na lista de conversas (`ConversasSidebar.tsx`), não existe nenhum tick.** Quando a última mensagem é minha, mostra só "Você: …" sem indicar se foi entregue/lida — diferente do WhatsApp.
+Fluxo novo: formulário → clica **Revisar** → tela de revisão (mesma página, substitui o formulário) → **Confirmar e gerar** → chama edge function → tela de resultado.
 
-### O que vamos fazer
+A tela de revisão mostra:
+- Nome do fluxo no topo (ex: "Gerar boleto").
+- Lista vertical de cada etapa: rótulo do campo + valor formatado.
+  - CPF: aplicar máscara `000.000.000-00`.
+  - Valor / decimal: formatar em BRL via `formatarBRL`.
+  - Imagens/anexos: mostrar miniatura + nome do arquivo (quantos foram anexados).
+  - Campos vazios opcionais: mostrar "—".
+- No fluxo `gerar_boleto`: destacar no topo o card da Consulta de CPF aprovada selecionada (protocolo, cliente, CPF mascarado, valor) já que esses campos vêm travados do servidor.
+- Dois botões no final:
+  - **Voltar e editar** (variant outline) — volta para o formulário com todos os dados preservados.
+  - **Confirmar e gerar** (primário, com loading) — dispara o envio real.
 
-**A. Reforçar ticks no chat (`src/pages/ConversaDetail.tsx`)**
-- Mostrar o tick fora da `<p>` de horário, com cor própria:
-  - `pending` → cinza claro
-  - `sent` → cinza médio (✓ único, sem opacidade)
-  - `read` → ✓✓ em azul WhatsApp (`text-sky-500`, já existe, mas garantir contraste)
-- Aumentar levemente o ícone (h-3.5 → h-4) para ficar legível em mobile.
-- Manter o `Clock3` para `pending`.
+## Mudanças técnicas (apenas em `src/pages/LojaNovaDemanda.tsx`)
 
-**B. Adicionar ticks no preview da sidebar (`src/components/ConversasSidebar.tsx`)**
-- Quando `c.lastMessage.remetente_id === user.id`, antes do "Você:" renderizar o mesmo `MessageTicks` (extraído para um arquivo compartilhado, ex.: `src/components/MessageTicks.tsx`).
-- Estado vem direto de `c.lastMessage.lida` (sent/read). Sem `pending` aqui (sidebar não tem otimista).
+1. **Novo estado** `revisando: boolean` (default `false`).
+2. **Renomear** o botão atual "Enviar solicitação" para **"Revisar dados"**. Seu `onClick` passa a chamar uma nova função `irParaRevisao()` que executa apenas a validação atual (o bloco de `novosErros` que hoje está dentro de `enviar()`) e, se passar, faz `setRevisando(true)`.
+3. **Refatorar `enviar()`**: remover a parte de validação (movida para `irParaRevisao`) e manter só a montagem do payload + `supabase.functions.invoke(...)` + `setResultado`. Será chamada apenas pelo botão "Confirmar e gerar".
+4. **Novo bloco de UI** (renderizado quando `fluxoAtivo && revisando && !resultado`, substituindo o formulário):
+   - Card com resumo dos campos (iterando `fluxoAtivo.etapas` e lendo `dados[campo]` / `anexos[campo]`).
+   - Se `fluxoAtivo.chave === "gerar_boleto"`, mostrar primeiro o card da `consultaCpfSelecionada` (reaproveitar a formatação já existente nas linhas ~607-700).
+   - Botão "Voltar e editar" → `setRevisando(false)`.
+   - Botão "Confirmar e gerar" → `enviar()`, com `disabled={enviando}` e ícone `Loader2` enquanto envia.
+5. **Helper local** `formatarValorEtapa(etapa, valor)` para renderizar cada valor de acordo com `tipo_input` (cpf → mascarar, decimal → BRL, imagem → contagem de anexos, demais → texto cru ou "—").
+6. **Título da página** (linhas 483-489): adicionar caso `revisando` → "Revisar antes de enviar".
+7. **Botão voltar do header**: quando `revisando` for `true`, em vez de sair do fluxo, deve voltar para o formulário (`setRevisando(false)`).
+8. **Reset**: ao concluir com sucesso (`setResultado(...)`) ou ao trocar de fluxo, garantir `setRevisando(false)`.
 
-**C. Reuso**
-- Mover o componente `MessageTicks` de dentro de `ConversaDetail.tsx` para `src/components/MessageTicks.tsx` e importar nos dois lugares.
+## Fora de escopo
 
-### Fora de escopo
-- Estado "entregue" separado de "enviado" (o schema só tem `lida` boolean — não dá para diferenciar "entregue ao device" de "salvo no servidor" sem mudar o banco).
-- Mudanças no schema, RLS ou backend.
-- Notificações/avisos da loja (já tratados em mensagens anteriores).
-
-### Confirmação
-Posso prosseguir com A+B+C? Ou você quer só a sidebar (B), só reforçar o chat (A), ou prefere também um estado "entregue" distinto (exigiria adicionar uma coluna `entregue_at` em `mensagens_internas`)?
+- Nenhuma mudança em edge functions, schema, RLS ou no backend.
+- Nenhuma alteração nos outros fluxos de chat/notificações.
+- Sem novas dependências.
