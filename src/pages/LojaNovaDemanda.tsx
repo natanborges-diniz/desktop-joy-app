@@ -423,10 +423,6 @@ export default function LojaNovaDemanda() {
     });
   }
 
-  async function enviar() {
-    if (!fluxoAtivo) return;
-
-    // Boleto: precisa ter consulta_cpf aprovada selecionada
   function irParaRevisao() {
     if (!fluxoAtivo) return;
 
