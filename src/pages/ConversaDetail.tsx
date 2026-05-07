@@ -313,6 +313,112 @@ export default function ConversaDetail() {
 
   const canSend = (!!text.trim() || !!pendingFile) && !sending;
 
+  // ===== Editar / Apagar =====
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  function startEdit(m: MensagemInterna) {
+    setEditingId(m.id);
+    setEditingText(m.conteudo ?? "");
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingText("");
+  }
+  async function saveEdit() {
+    if (!editingId) return;
+    const novo = editingText.trim();
+    const original = messages.find((x) => x.id === editingId);
+    if (!original) return cancelEdit();
+    if (!novo) {
+      toast.error("A mensagem não pode ficar vazia.");
+      return;
+    }
+    if (novo === (original.conteudo ?? "")) {
+      cancelEdit();
+      return;
+    }
+    setSavingEdit(true);
+    const nowIso = new Date().toISOString();
+    setMessages((prev) =>
+      prev.map((x) =>
+        x.id === editingId ? { ...x, conteudo: novo, editada_em: nowIso } : x,
+      ),
+    );
+    const { error } = await supabase
+      .from("mensagens_internas")
+      .update({ conteudo: novo, editada_em: nowIso })
+      .eq("id", editingId);
+    setSavingEdit(false);
+    if (error) {
+      setMessages((prev) =>
+        prev.map((x) =>
+          x.id === editingId
+            ? { ...x, conteudo: original.conteudo, editada_em: original.editada_em }
+            : x,
+        ),
+      );
+      toast.error("Não foi possível editar. Tente novamente.");
+      return;
+    }
+    cancelEdit();
+  }
+
+  function extrairPathDoAnexo(url: string): string | null {
+    const marker = `/object/public/${ANEXOS_BUCKET}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return decodeURIComponent(url.slice(idx + marker.length));
+  }
+
+  async function confirmarApagar() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    const original = messages.find((x) => x.id === id);
+    if (!original) {
+      setConfirmDeleteId(null);
+      return;
+    }
+    setDeleting(true);
+    const nowIso = new Date().toISOString();
+    setMessages((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? { ...x, apagada_em: nowIso, conteudo: "", anexo_url: null, anexo_tipo: null }
+          : x,
+      ),
+    );
+    if (original.anexo_url) {
+      const path = extrairPathDoAnexo(original.anexo_url);
+      if (path) {
+        try {
+          await supabase.storage.from(ANEXOS_BUCKET).remove([path]);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    const { error } = await supabase
+      .from("mensagens_internas")
+      .update({
+        apagada_em: nowIso,
+        conteudo: "",
+        anexo_url: null,
+        anexo_tipo: null,
+      })
+      .eq("id", id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (error) {
+      setMessages((prev) => prev.map((x) => (x.id === id ? original : x)));
+      toast.error("Não foi possível apagar. Tente novamente.");
+    }
+  }
+
+
   return (
     <div className="flex h-full flex-col bg-surface-muted">
       <header className="bg-gradient-header pt-[max(env(safe-area-inset-top),0.75rem)] text-header-foreground shadow-elevated">
