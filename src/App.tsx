@@ -37,6 +37,7 @@ const App = () => (
           >
             <Route path="/" element={<ConversasList />} />
             <Route path="/conversas/:otherId" element={<ConversaDetail />} />
+            <Route path="/grupos/:groupId" element={<GrupoChat />} />
             <Route path="/demandas" element={<DemandasList />} />
             <Route path="/demandas/:id" element={<DemandaChat />} />
             <Route path="/nova-demanda" element={<LojaNovaDemanda />} />
