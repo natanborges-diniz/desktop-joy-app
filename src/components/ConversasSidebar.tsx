@@ -256,6 +256,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
         lastMessage: null,
         lastDate: g.created_at,
         unread: 0,
+        lastAllRead: false,
       });
     }
 
