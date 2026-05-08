@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import Login from "@/pages/Login";
 import ConversasList from "@/pages/ConversasList";
 import ConversaDetail from "@/pages/ConversaDetail";
+import GrupoChat from "@/pages/GrupoChat";
 import DemandasList from "@/pages/DemandasList";
 import DemandaChat from "@/pages/DemandaChat";
 import LojaNovaDemanda from "@/pages/LojaNovaDemanda";
