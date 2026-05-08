@@ -722,7 +722,7 @@ export default function GrupoChat() {
                                   <MessageTicks
                                     status={m.lida_por_todos ? "read" : "sent"}
                                   />
-                                  <span className="text-[10px]">
+                                  <span className="text-[11px] font-medium underline decoration-dotted underline-offset-2">
                                     {m.lidas_count}/{m.total_copias}
                                   </span>
                                 </button>
