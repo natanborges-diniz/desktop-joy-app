@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import Login from "@/pages/Login";
 import ConversasList from "@/pages/ConversasList";
 import ConversaDetail from "@/pages/ConversaDetail";
+import GrupoChat from "@/pages/GrupoChat";
 import DemandasList from "@/pages/DemandasList";
 import DemandaChat from "@/pages/DemandaChat";
 import LojaNovaDemanda from "@/pages/LojaNovaDemanda";
@@ -36,6 +37,7 @@ const App = () => (
           >
             <Route path="/" element={<ConversasList />} />
             <Route path="/conversas/:otherId" element={<ConversaDetail />} />
+            <Route path="/grupos/:groupId" element={<GrupoChat />} />
             <Route path="/demandas" element={<DemandasList />} />
             <Route path="/demandas/:id" element={<DemandaChat />} />
             <Route path="/nova-demanda" element={<LojaNovaDemanda />} />

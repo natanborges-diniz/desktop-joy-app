@@ -1,79 +1,98 @@
 
-# Plano
+## Objetivo
 
-Dois problemas independentes, resolvidos em frentes separadas. Tudo é frontend, sem mudar o banco externo.
+Hoje uma transmissão para um grupo aparece como N conversas separadas na sidebar (uma por destinatário). Vamos espelhar a estrutura do projeto Atrium (Lovable Connect & Flow), tratando `conversa_id` que começa com `grupo_` como **uma única conversa** e listando também grupos vindos de `conversas_grupo` onde o usuário está em `participantes` — mesmo sem mensagens ainda. V1 sem editar / apagar mensagem em grupo.
 
----
+## O que muda
 
-## 1) iPhone (PWA) — conversas não aparecem
+### 1. `src/components/ConversasSidebar.tsx`
 
-### Causa provável
-- O Service Worker registrado em produção (`/sw.js`) está servindo bundle antigo **antes** da correção do probe de colunas. No iOS o SW é especialmente "grudento" e só atualiza quando todas as abas/janelas do PWA são fechadas.
-- Sem o fix novo, qualquer erro RLS/transitório no probe fazia a sidebar consultar `editada_em,apagada_em` (que não existem) → 400 → lista vazia, e silenciosamente.
+- Trocar a chave de agrupamento: hoje agrupa por `otherId` (1:1). Passar a agrupar por `conversa_id`:
+  - se `conversa_id` começar com `grupo_` → entrada de grupo (chave = `conversa_id`)
+  - senão → entrada 1:1 (chave = `conversa_id` derivado de `[remetente, destinatario].sort().join("_")`, conforme `lib/conversa.ts`).
+- Para grupos, **não ler `profiles[otherId]`**; ler de `conversas_grupo` (`id, nome, participantes, created_at`).
+- Buscar também `conversas_grupo` onde `participantes` contém `auth.uid()` (`.contains("participantes", [user.id])`) e mesclar com os grupos que já têm mensagem; grupos sem mensagem aparecem com:
+  - `ultima_mensagem` = "Grupo criado — envie a primeira mensagem"
+  - `ultima_data` = `created_at` do grupo
+  - `nao_lidas` = 0
+- Não-lidas de grupo = `cmsgs.filter(m => m.destinatario_id === uid && !m.lida).length` (cada participante tem sua linha).
+- Filtrar fora `conversa_id LIKE 'demanda_%'` e `'ponte_%'` (já fazemos algo parecido — confirmar e padronizar com `.not("conversa_id","like","demanda_%")` e `'ponte_%'`).
+- Avatar/nome: para grupos, mostrar ícone de grupo (`Users`) no lugar do `UserAvatar` e o `nome` do grupo. Item leva para `/grupos/<grupo_id>` em vez de `/conversas/<otherId>`.
+- Tick `MessageTicks` da última mensagem em grupo: mostrar só `sent` (sem ✓✓ por enquanto — V2).
 
-### O que fazer
+### 2. Nova página `src/pages/GrupoChat.tsx` (rota `/grupos/:groupId`)
 
-**a) Forçar atualização agressiva do SW**
-- No `src/sw.ts`: já chama `skipWaiting()` e `clients.claim()`, mas não notifica o cliente. Adicionar um `BroadcastChannel("sw-update")` ou usar o `controllerchange` listener no `main.tsx` para **dar `window.location.reload()` automático** quando um novo SW assume o controle. Isso garante que, na próxima abertura no iPhone, a tela carrega o bundle novo sem o usuário precisar fechar manualmente.
-- No `main.tsx`, ao registrar o SW, chamar `registration.update()` periodicamente (a cada foco da janela) para acelerar a detecção.
+- Estrutura espelha `ConversaDetail.tsx`, mas:
+  - carrega `conversas_grupo` por `id = groupId` para pegar `nome` e `participantes`; se `participantes` não inclui `user.id`, redireciona para `/`.
+  - Carrega mensagens com `.eq("conversa_id", "grupo_" + groupId)` ordenado por `created_at asc`.
+  - **Dedup do feed**: cada envio em grupo gera N linhas (uma por destinatário). Antes de renderizar, deduplicar por chave `${remetente_id}|${conteudo}|${anexo_url ?? ""}|${created_at até segundo}`.
+  - Carregar `profiles` de todos os `participantes` (id → nome) para etiquetar balões recebidos com **nome do remetente** (estilo WhatsApp). Para mensagens minhas, sem etiqueta.
+  - Header: ícone `Users`, nome do grupo, "N participantes".
+  - Realtime: assinar `mensagens_internas` com filtro `conversa_id=eq.grupo_<id>` (event `*`) e refazer query.
+  - **V1 sem MessageActionsMenu** (sem editar/apagar) — em grupo as N cópias confundem a UX.
+  - Reusar o mesmo bloco de anexo/upload do `ConversaDetail.tsx` (bucket `mensagens-anexos`).
+  - Marcar como lidas: `update mensagens_internas set lida=true where conversa_id='grupo_<id>' and destinatario_id=user.id and lida=false` ao montar/scroll-end.
 
-**b) Indicador diagnóstico na sidebar**
-- Em `ConversasSidebar.tsx`, quando `loading=false` e `messages.length===0`, exibir o motivo real:
-  - `"Sem sessão ativa"` se `!user`
-  - `"Erro ao carregar (código X)"` se `res.error` foi capturado
-  - `"Nenhuma conversa ainda"` (atual) só quando realmente não há erro.
-- Salvar o último erro em estado local para mostrar.
+### 3. Envio em grupo
 
-**c) Evitar empty silencioso quando RLS retorna 0 linhas mas usuário tem conversas**
-- Como tem fallback agora pra `BASE_COLUMNS`, isso já está mitigado. O indicador acima cobre o resto.
+- Fonte da verdade: `conversas_grupo.participantes` (array de uuids).
+- Inserir N-1 linhas em `mensagens_internas`:
+  ```
+  participantes.filter(p => p !== user.id).map(d => ({
+    remetente_id: user.id,
+    destinatario_id: d,
+    conversa_id: `grupo_${groupId}`,
+    conteudo, anexo_url?, anexo_tipo?,
+  }))
+  ```
+- Se `outros.length === 0` → toast "Grupo sem outros participantes".
+- Não enviar para si mesmo (evita duplicar bolha após dedup).
 
-### Como testar no iPhone
-1. Após deploy, abrir o PWA → ele detecta o SW novo, recarrega sozinho.
-2. Conversas voltam a aparecer.
-3. Se ainda vier vazio, aparece um texto explicando o motivo (não mais a tela vaga).
+### 4. `src/App.tsx`
 
----
+- Importar `GrupoChat` e adicionar `<Route path="/grupos/:groupId" element={<GrupoChat />} />` dentro do bloco protegido.
 
-## 2) Avisos — dinâmica confusa
+### 5. `src/components/AppShell.tsx`
 
-### Problemas reportados
-1. Notificações "compareceu/não compareceu/venda" continuam visíveis depois de respondidas → poluição visual.
-2. Dispara mais de uma notificação para a mesma situação (operador acaba registrando ação 2x).
-3. 2ª cobrança aparece somada à 1ª, sem correlação. Para limpar a tela, operador precisa marcar as duas como lida.
-4. Notificação respondida deveria sumir da lista.
+- Tratar a rota de grupo como rota de conversa: regex
+  ```
+  const isConversaRoute = isHome
+    || /^\/conversas\/[^/]+/.test(pathname)
+    || /^\/grupos\/[^/]+/.test(pathname);
+  const hideBottomNav =
+    /^\/conversas\/[^/]+/.test(pathname)
+    || /^\/grupos\/[^/]+/.test(pathname)
+    || /^\/demandas\/[^/]+/.test(pathname);
+  ```
+- Sidebar continua a `ConversasSidebar` — agora ela já mostra grupos.
 
-### Estratégia (tudo em `src/pages/NotificacoesList.tsx`)
+### 6. Item ativo na sidebar
 
-**a) Esconder automaticamente notificações já lidas**
-- Hoje a query traz tudo (`.limit(100)`). Adicionar filtro padrão `.eq("lida", false)` e oferecer um chip *"Ver lidas"* opcional.
-- Resultado: assim que a notificação é marcada como `lida`, ela some da lista.
+- `useParams` já retorna `otherId` em `/conversas/:otherId`. Adicionar leitura também do path para grupos: `useMatch("/grupos/:groupId")`. Item de grupo fica destacado quando `groupId === entry.grupo_id`.
 
-**b) Marcar como lida automaticamente quando ação é executada**
-- O `AcaoAgendamentoButtons` já chama `onDone={() => marcarLida(n.id)}`. Manter.
-- **Adicional**: quando o operador registra ação (compareceu/noshow/venda) num agendamento, marcar como lidas **todas** as notificações cujo `referencia_id === agendamentoId` (engloba 1ª e 2ª cobrança da mesma situação). Implementar em `marcarLidaPorAgendamento(agendamentoId)`.
+### 7. Não-lidas globais (`useUnreadCount`)
 
-**c) Deduplicar cobranças visuais (1ª + 2ª da mesma situação)**
-- Antes de renderizar a lista, agrupar por `referencia_id` quando o `tipo` está em `TIPOS_COM_ACOES`.
-- Para cada grupo, mostrar **apenas a notificação mais recente** (ex.: a 2ª cobrança substitui a 1ª).
-- As notificações antigas do mesmo grupo são marcadas como lidas em background ao montar a lista (evita que voltem a aparecer caso o filtro mude).
+- Já conta `lida=false` para `destinatario_id = user.id`. Como cada cópia em grupo já é uma linha com `destinatario_id`, o badge funciona automaticamente. Não precisa alterar.
 
-**d) Botão "Marcar como lida" sempre disponível**
-- Hoje só aparece quando não há `showActions`. Habilitar também nos cards com ações, no canto inferior direito (texto sutil "Dispensar"), pra cobrir o caso "operador já tratou fora do app".
+## Tabelas e RLS necessárias (no banco compartilhado)
 
-### Resumo de comportamento após mudança
-- Lista mostra só pendências reais (`lida=false`).
-- Ao clicar em compareceu/noshow/venda: ação registrada → todas notificações daquele agendamento somem.
-- 2ª cobrança chega → 1ª some da tela automaticamente; só fica a mais recente.
-- Operador pode "Dispensar" qualquer card manualmente.
-- Toggle "Ver lidas" para auditoria, sem encher a tela do dia a dia.
+Tudo isso já existe no projeto Atrium (`conversas_grupo` com `participantes uuid[]`, RLS por membership, `mensagens_internas` aceita `conversa_id` arbitrária). **Nenhuma migração será aplicada por este projeto** — quem faz schema é o projeto Atrium. Aqui só consumimos. Caso ainda não existam, abrir uma demanda no Atrium para garantir:
+- `public.conversas_grupo (id uuid pk, nome text, participantes uuid[], criado_por uuid, tipo_origem text, origem_ref text, created_at)`
+- RLS: `select` se `auth.uid() = ANY(participantes)`.
 
-### Out of scope (precisaria mudar o banco do atrium-link, fora deste projeto)
-- Impedir o **gerador** de notificações duplicadas no servidor (raiz do problema 2). Aqui só mascaramos visualmente a duplicação. Posso documentar no `.lovable/plan.md` para tratar depois.
+## Fora do escopo (V1)
 
----
+- Editar / apagar mensagem em grupo.
+- Tick "lida por todos" (verificar todas as cópias) — fica `sent`.
+- Criar grupo a partir do Messenger (criação continua no Atrium / admin).
+- Indicador de digitação em grupo.
 
-## Arquivos que serão alterados
-- `src/main.tsx` — auto reload no `controllerchange` + `registration.update()` no foco.
-- `src/sw.ts` — confirmar `skipWaiting`/`clients.claim` (já ok).
-- `src/components/ConversasSidebar.tsx` — estado de erro + mensagens diagnósticas.
-- `src/pages/NotificacoesList.tsx` — filtro `lida=false`, dedupe por `referencia_id`, marcar lida em massa por agendamento, toggle "Ver lidas", botão "Dispensar" universal.
+## Critérios de aceite
+
+1. Uma transmissão recebida de um grupo aparece como **um único item** na sidebar com nome do grupo e ícone de grupo.
+2. Grupos onde sou membro mas ainda sem mensagens aparecem com "Grupo criado — envie a primeira mensagem".
+3. Clicar no item abre `/grupos/<id>` mostrando o feed sem mensagens duplicadas.
+4. Cada balão recebido mostra o **nome do remetente** acima.
+5. Ao enviar uma mensagem em grupo, todos os outros participantes a recebem em tempo real e o badge não-lidas global atualiza para cada um.
+6. Mensagens fora do grupo (1:1, demandas) continuam funcionando exatamente como hoje.
+7. Bottom nav mobile some dentro de `/grupos/:groupId`, igual a `/conversas/:otherId`.

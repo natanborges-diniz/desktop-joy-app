@@ -56,10 +56,14 @@ export default function AppShell() {
   const { isLoja } = useLojaContext();
 
   const isHome = location.pathname === "/";
-  const isConversaRoute = isHome || /^\/conversas\/[^/]+/.test(location.pathname);
-  // No mobile, esconder bottom nav quando dentro de uma conversa específica ou de uma demanda específica
+  const isConversaRoute =
+    isHome ||
+    /^\/conversas\/[^/]+/.test(location.pathname) ||
+    /^\/grupos\/[^/]+/.test(location.pathname);
+  // No mobile, esconder bottom nav quando dentro de uma conversa específica, grupo, ou demanda específica
   const hideBottomNav =
     /^\/conversas\/[^/]+/.test(location.pathname) ||
+    /^\/grupos\/[^/]+/.test(location.pathname) ||
     /^\/demandas\/[^/]+/.test(location.pathname);
 
   const items = baseItems.filter((it) => !it.lojaOnly || isLoja);
