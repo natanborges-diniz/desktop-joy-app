@@ -217,6 +217,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
             lastMessage: m,
             lastDate: m.created_at,
             unread: isUnread ? 1 : 0,
+            lastAllRead: false,
           });
         } else if (existing.kind === "group") {
           if (isUnread) existing.unread += 1;
