@@ -44,6 +44,7 @@ type Conversation =
       lastMessage: MensagemInterna | null;
       lastDate: string;
       unread: number;
+      lastAllRead: boolean;
     };
 
 interface Props {
