@@ -423,7 +423,10 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                         </div>
                         <div className="flex items-center gap-1.5">
                           {last && last.remetente_id === user?.id && !last.apagada_em && (
-                            <MessageTicks status="sent" className="shrink-0" />
+                            <MessageTicks
+                              status={c.lastAllRead ? "read" : "sent"}
+                              className="shrink-0"
+                            />
                           )}
                           <p
                             className={cn(
