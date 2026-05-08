@@ -44,6 +44,7 @@ type Conversation =
       lastMessage: MensagemInterna | null;
       lastDate: string;
       unread: number;
+      lastAllRead: boolean;
     };
 
 interface Props {
@@ -216,6 +217,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
             lastMessage: m,
             lastDate: m.created_at,
             unread: isUnread ? 1 : 0,
+            lastAllRead: false,
           });
         } else if (existing.kind === "group") {
           if (isUnread) existing.unread += 1;
@@ -254,7 +256,25 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
         lastMessage: null,
         lastDate: g.created_at,
         unread: 0,
+        lastAllRead: false,
       });
+    }
+
+
+    // Para grupos: lida_por_todos = todas as cópias do último broadcast estão lidas
+    for (const c of map.values()) {
+      if (c.kind !== "group" || !c.lastMessage) continue;
+      const last = c.lastMessage;
+      const sec = new Date(last.created_at).toISOString().slice(0, 19);
+      const copias = messages.filter(
+        (m) =>
+          m.conversa_id === c.key &&
+          m.remetente_id === last.remetente_id &&
+          (m.conteudo ?? "") === (last.conteudo ?? "") &&
+          (m.anexo_url ?? "") === (last.anexo_url ?? "") &&
+          new Date(m.created_at).toISOString().slice(0, 19) === sec,
+      );
+      c.lastAllRead = copias.length > 0 && copias.every((m) => m.lida);
     }
 
     let list = Array.from(map.values());
@@ -403,7 +423,10 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
                         </div>
                         <div className="flex items-center gap-1.5">
                           {last && last.remetente_id === user?.id && !last.apagada_em && (
-                            <MessageTicks status="sent" className="shrink-0" />
+                            <MessageTicks
+                              status={c.lastAllRead ? "read" : "sent"}
+                              className="shrink-0"
+                            />
                           )}
                           <p
                             className={cn(
