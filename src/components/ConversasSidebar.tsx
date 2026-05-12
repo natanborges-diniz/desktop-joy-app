@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, MessageSquare, Plus, PenSquare, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
+import { NovoGrupoDialog } from "@/components/NovoGrupoDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { usePresence } from "@/hooks/usePresence";
 import { MessageTicks } from "@/components/MessageTicks";
 import {
@@ -65,6 +72,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todas" | "nao_lidas">("todas");
   const [novaOpen, setNovaOpen] = useState(false);
+  const [novoGrupoOpen, setNovoGrupoOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const onlineIds = usePresence();
 
@@ -327,20 +335,33 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       >
         <div className="flex h-14 items-center justify-between md:h-16">
           <h1 className="text-lg font-semibold md:text-xl">Conversas</h1>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setNovaOpen(true)}
-            className={cn(
-              "hidden gap-2 md:inline-flex",
-              embedded
-                ? "bg-primary/10 text-primary hover:bg-primary/20"
-                : "bg-white/15 text-header-foreground backdrop-blur hover:bg-white/25",
-            )}
-          >
-            <PenSquare className="h-4 w-4" />
-            Nova
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                className={cn(
+                  "hidden gap-2 md:inline-flex",
+                  embedded
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "bg-white/15 text-header-foreground backdrop-blur hover:bg-white/25",
+                )}
+              >
+                <PenSquare className="h-4 w-4" />
+                Nova
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => setNovaOpen(true)}>
+                <PenSquare className="mr-2 h-4 w-4" />
+                Nova conversa
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setNovoGrupoOpen(true)}>
+                <Users className="mr-2 h-4 w-4" />
+                Novo grupo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -530,17 +551,31 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       </div>
 
       {!embedded && (
-        <button
-          type="button"
-          onClick={() => setNovaOpen(true)}
-          aria-label="Nova conversa"
-          className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-floating transition-transform hover:scale-105 active:scale-95 md:hidden"
-        >
-          <PenSquare className="h-5 w-5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Nova"
+              className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-floating transition-transform hover:scale-105 active:scale-95 md:hidden"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-48">
+            <DropdownMenuItem onSelect={() => setNovaOpen(true)}>
+              <PenSquare className="mr-2 h-4 w-4" />
+              Nova conversa
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setNovoGrupoOpen(true)}>
+              <Users className="mr-2 h-4 w-4" />
+              Novo grupo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
       <NovaConversaDialog open={novaOpen} onOpenChange={setNovaOpen} />
+      <NovoGrupoDialog open={novoGrupoOpen} onOpenChange={setNovoGrupoOpen} />
     </div>
   );
 }

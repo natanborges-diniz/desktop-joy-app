@@ -27,6 +27,16 @@ import {
 import { MessageTicks } from "@/components/MessageTicks";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UserPlus, UserMinus, Search } from "lucide-react";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -68,6 +78,14 @@ type Grupo = {
   id: string;
   nome: string;
   participantes: string[];
+  criado_por: string | null;
+};
+
+type ProfileLite = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  cargo: string | null;
 };
 
 // Visão "agregada" de um broadcast em grupo: 1 logical message representando N cópias.
@@ -124,12 +142,109 @@ export default function GrupoChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Gerenciar participantes
+  const [manageOpen, setManageOpen] = useState(false);
+  const [allProfiles, setAllProfiles] = useState<ProfileLite[]>([]);
+  const [addSelection, setAddSelection] = useState<Set<string>>(new Set());
+  const [addSearch, setAddSearch] = useState("");
+  const [savingMembers, setSavingMembers] = useState(false);
+  const isOwner = !!grupo && !!user && grupo.criado_por === user.id;
+
   // Editar / apagar
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Carregar todos os profiles ativos quando abrir gerenciador
+  useEffect(() => {
+    if (!manageOpen || allProfiles.length > 0) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, email, cargo")
+        .eq("ativo", true)
+        .order("nome");
+      if (active && data) setAllProfiles(data as ProfileLite[]);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [manageOpen, allProfiles.length]);
+
+  async function recarregarGrupo() {
+    if (!groupId) return;
+    const { data: g } = await supabase
+      .from("conversas_grupo")
+      .select("id, nome, participantes, criado_por")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (g) {
+      const gd = g as unknown as Grupo;
+      setGrupo(gd);
+      // refresh nomes
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,nome,email")
+        .in("id", gd.participantes);
+      if (profs) {
+        const map: Record<string, string> = {};
+        for (const p of profs as Array<{ id: string; nome: string | null; email: string | null }>) {
+          map[p.id] = p.nome || p.email || "Usuário";
+        }
+        setNomes(map);
+      }
+    }
+  }
+
+  async function handleAdicionarMembros() {
+    if (!grupo || addSelection.size === 0) return;
+    setSavingMembers(true);
+    try {
+      const novos = Array.from(new Set([...grupo.participantes, ...addSelection]));
+      const { error } = await (supabase as any)
+        .from("conversas_grupo")
+        .update({ participantes: novos })
+        .eq("id", grupo.id);
+      if (error) throw error;
+      toast.success(
+        addSelection.size === 1 ? "Participante adicionado." : "Participantes adicionados.",
+      );
+      setAddSelection(new Set());
+      await recarregarGrupo();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Erro ao adicionar: " + msg);
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
+  async function handleRemoverMembro(pid: string) {
+    if (!grupo || !user) return;
+    if (pid === grupo.criado_por) {
+      toast.error("Não é possível remover o criador do grupo.");
+      return;
+    }
+    setSavingMembers(true);
+    try {
+      const novos = grupo.participantes.filter((p) => p !== pid);
+      const { error } = await (supabase as any)
+        .from("conversas_grupo")
+        .update({ participantes: novos })
+        .eq("id", grupo.id);
+      if (error) throw error;
+      toast.success("Participante removido.");
+      await recarregarGrupo();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Erro ao remover: " + msg);
+    } finally {
+      setSavingMembers(false);
+    }
+  }
 
   // Carregar grupo + mensagens
   useEffect(() => {
@@ -140,7 +255,7 @@ export default function GrupoChat() {
       setLoading(true);
       const { data: g, error: gErr } = await supabase
         .from("conversas_grupo")
-        .select("id, nome, participantes")
+        .select("id, nome, participantes, criado_por")
         .eq("id", groupId!)
         .maybeSingle();
 
@@ -505,23 +620,57 @@ export default function GrupoChat() {
                     {grupo.participantes.length} participantes
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-2">
+                <PopoverContent align="start" className="w-72 p-2">
                   <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
                     Participantes ({grupo.participantes.length})
                   </p>
-                  <div className="max-h-72 overflow-y-auto pr-1">
-                    {grupo.participantes.map((pid) => (
-                      <div
-                        key={pid}
-                        className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-                      >
-                        <span className="truncate">{nomes[pid] || "Usuário"}</span>
-                        {pid === user?.id && (
-                          <span className="text-[10px] text-muted-foreground">(você)</span>
-                        )}
-                      </div>
-                    ))}
+                  <div className="max-h-60 overflow-y-auto pr-1">
+                    {grupo.participantes.map((pid) => {
+                      const isCriador = pid === grupo.criado_por;
+                      const podeRemover = isOwner && !isCriador && pid !== user?.id;
+                      return (
+                        <div
+                          key={pid}
+                          className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {nomes[pid] || "Usuário"}
+                          </span>
+                          {pid === user?.id && (
+                            <span className="text-[10px] text-muted-foreground">(você)</span>
+                          )}
+                          {isCriador && (
+                            <span className="text-[10px] text-muted-foreground">(admin)</span>
+                          )}
+                          {podeRemover && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              disabled={savingMembers}
+                              onClick={() => handleRemoverMembro(pid)}
+                              aria-label="Remover participante"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+                  {isOwner && (
+                    <div className="mt-2 border-t border-border pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setManageOpen(true)}
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Adicionar participantes
+                      </Button>
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
             )}
@@ -885,6 +1034,116 @@ export default function GrupoChat() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog
+        open={manageOpen}
+        onOpenChange={(o) => {
+          if (!savingMembers) {
+            setManageOpen(o);
+            if (!o) {
+              setAddSelection(new Set());
+              setAddSearch("");
+            }
+          }
+        }}
+      >
+        <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="text-base">Adicionar participantes</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto scroll-thin px-5 py-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={addSearch}
+                onChange={(e) => setAddSearch(e.target.value)}
+                placeholder="Buscar pessoas"
+                className="pl-9"
+              />
+            </div>
+            <div className="mt-3 rounded border border-border">
+              {(() => {
+                const q = addSearch.trim().toLowerCase();
+                const candidatos = allProfiles.filter((p) => {
+                  if (grupo?.participantes.includes(p.id)) return false;
+                  if (!q) return true;
+                  return (
+                    (p.nome ?? "").toLowerCase().includes(q) ||
+                    (p.email ?? "").toLowerCase().includes(q) ||
+                    (p.cargo ?? "").toLowerCase().includes(q)
+                  );
+                });
+                if (candidatos.length === 0) {
+                  return (
+                    <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      Nenhuma pessoa disponível.
+                    </p>
+                  );
+                }
+                return (
+                  <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+                    {candidatos.map((p) => {
+                      const checked = addSelection.has(p.id);
+                      return (
+                        <li key={p.id}>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted",
+                              checked && "bg-primary/5",
+                            )}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => {
+                                setAddSelection((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(p.id)) next.delete(p.id);
+                                  else next.add(p.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-foreground">
+                                {p.nome || p.email || "Usuário"}
+                              </p>
+                              {(p.cargo || p.email) && (
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {p.cargo || p.email}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
+            </div>
+          </div>
+          <DialogFooter className="border-t border-border px-5 py-3">
+            <Button
+              variant="outline"
+              onClick={() => setManageOpen(false)}
+              disabled={savingMembers}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleAdicionarMembros();
+                setManageOpen(false);
+              }}
+              disabled={savingMembers || addSelection.size === 0}
+            >
+              {savingMembers ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Adicionar {addSelection.size > 0 ? `(${addSelection.size})` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
