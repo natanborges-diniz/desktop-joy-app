@@ -620,23 +620,57 @@ export default function GrupoChat() {
                     {grupo.participantes.length} participantes
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-2">
+                <PopoverContent align="start" className="w-72 p-2">
                   <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
                     Participantes ({grupo.participantes.length})
                   </p>
-                  <div className="max-h-72 overflow-y-auto pr-1">
-                    {grupo.participantes.map((pid) => (
-                      <div
-                        key={pid}
-                        className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-                      >
-                        <span className="truncate">{nomes[pid] || "Usuário"}</span>
-                        {pid === user?.id && (
-                          <span className="text-[10px] text-muted-foreground">(você)</span>
-                        )}
-                      </div>
-                    ))}
+                  <div className="max-h-60 overflow-y-auto pr-1">
+                    {grupo.participantes.map((pid) => {
+                      const isCriador = pid === grupo.criado_por;
+                      const podeRemover = isOwner && !isCriador && pid !== user?.id;
+                      return (
+                        <div
+                          key={pid}
+                          className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {nomes[pid] || "Usuário"}
+                          </span>
+                          {pid === user?.id && (
+                            <span className="text-[10px] text-muted-foreground">(você)</span>
+                          )}
+                          {isCriador && (
+                            <span className="text-[10px] text-muted-foreground">(admin)</span>
+                          )}
+                          {podeRemover && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              disabled={savingMembers}
+                              onClick={() => handleRemoverMembro(pid)}
+                              aria-label="Remover participante"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+                  {isOwner && (
+                    <div className="mt-2 border-t border-border pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setManageOpen(true)}
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Adicionar participantes
+                      </Button>
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
             )}
