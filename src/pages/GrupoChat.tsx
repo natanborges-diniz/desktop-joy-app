@@ -68,6 +68,14 @@ type Grupo = {
   id: string;
   nome: string;
   participantes: string[];
+  criado_por: string | null;
+};
+
+type ProfileLite = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  cargo: string | null;
 };
 
 // Visão "agregada" de um broadcast em grupo: 1 logical message representando N cópias.
