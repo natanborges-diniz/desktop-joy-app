@@ -551,17 +551,31 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       </div>
 
       {!embedded && (
-        <button
-          type="button"
-          onClick={() => setNovaOpen(true)}
-          aria-label="Nova conversa"
-          className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-floating transition-transform hover:scale-105 active:scale-95 md:hidden"
-        >
-          <PenSquare className="h-5 w-5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Nova"
+              className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-floating transition-transform hover:scale-105 active:scale-95 md:hidden"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-48">
+            <DropdownMenuItem onSelect={() => setNovaOpen(true)}>
+              <PenSquare className="mr-2 h-4 w-4" />
+              Nova conversa
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setNovoGrupoOpen(true)}>
+              <Users className="mr-2 h-4 w-4" />
+              Novo grupo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
       <NovaConversaDialog open={novaOpen} onOpenChange={setNovaOpen} />
+      <NovoGrupoDialog open={novoGrupoOpen} onOpenChange={setNovoGrupoOpen} />
     </div>
   );
 }
