@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, MessageSquare, Plus, PenSquare, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
+import { NovoGrupoDialog } from "@/components/NovoGrupoDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { usePresence } from "@/hooks/usePresence";
 import { MessageTicks } from "@/components/MessageTicks";
 import {
