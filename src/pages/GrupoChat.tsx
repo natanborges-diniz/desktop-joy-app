@@ -157,6 +157,95 @@ export default function GrupoChat() {
   const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Carregar todos os profiles ativos quando abrir gerenciador
+  useEffect(() => {
+    if (!manageOpen || allProfiles.length > 0) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, nome, email, cargo")
+        .eq("ativo", true)
+        .order("nome");
+      if (active && data) setAllProfiles(data as ProfileLite[]);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [manageOpen, allProfiles.length]);
+
+  async function recarregarGrupo() {
+    if (!groupId) return;
+    const { data: g } = await supabase
+      .from("conversas_grupo")
+      .select("id, nome, participantes, criado_por")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (g) {
+      const gd = g as unknown as Grupo;
+      setGrupo(gd);
+      // refresh nomes
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,nome,email")
+        .in("id", gd.participantes);
+      if (profs) {
+        const map: Record<string, string> = {};
+        for (const p of profs as Array<{ id: string; nome: string | null; email: string | null }>) {
+          map[p.id] = p.nome || p.email || "Usuário";
+        }
+        setNomes(map);
+      }
+    }
+  }
+
+  async function handleAdicionarMembros() {
+    if (!grupo || addSelection.size === 0) return;
+    setSavingMembers(true);
+    try {
+      const novos = Array.from(new Set([...grupo.participantes, ...addSelection]));
+      const { error } = await (supabase as any)
+        .from("conversas_grupo")
+        .update({ participantes: novos })
+        .eq("id", grupo.id);
+      if (error) throw error;
+      toast.success(
+        addSelection.size === 1 ? "Participante adicionado." : "Participantes adicionados.",
+      );
+      setAddSelection(new Set());
+      await recarregarGrupo();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Erro ao adicionar: " + msg);
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
+  async function handleRemoverMembro(pid: string) {
+    if (!grupo || !user) return;
+    if (pid === grupo.criado_por) {
+      toast.error("Não é possível remover o criador do grupo.");
+      return;
+    }
+    setSavingMembers(true);
+    try {
+      const novos = grupo.participantes.filter((p) => p !== pid);
+      const { error } = await (supabase as any)
+        .from("conversas_grupo")
+        .update({ participantes: novos })
+        .eq("id", grupo.id);
+      if (error) throw error;
+      toast.success("Participante removido.");
+      await recarregarGrupo();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Erro ao remover: " + msg);
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
   // Carregar grupo + mensagens
   useEffect(() => {
     if (!user || !groupId || !conversaId) return;
