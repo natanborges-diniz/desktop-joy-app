@@ -1034,6 +1034,116 @@ export default function GrupoChat() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog
+        open={manageOpen}
+        onOpenChange={(o) => {
+          if (!savingMembers) {
+            setManageOpen(o);
+            if (!o) {
+              setAddSelection(new Set());
+              setAddSearch("");
+            }
+          }
+        }}
+      >
+        <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="text-base">Adicionar participantes</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto scroll-thin px-5 py-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={addSearch}
+                onChange={(e) => setAddSearch(e.target.value)}
+                placeholder="Buscar pessoas"
+                className="pl-9"
+              />
+            </div>
+            <div className="mt-3 rounded border border-border">
+              {(() => {
+                const q = addSearch.trim().toLowerCase();
+                const candidatos = allProfiles.filter((p) => {
+                  if (grupo?.participantes.includes(p.id)) return false;
+                  if (!q) return true;
+                  return (
+                    (p.nome ?? "").toLowerCase().includes(q) ||
+                    (p.email ?? "").toLowerCase().includes(q) ||
+                    (p.cargo ?? "").toLowerCase().includes(q)
+                  );
+                });
+                if (candidatos.length === 0) {
+                  return (
+                    <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      Nenhuma pessoa disponível.
+                    </p>
+                  );
+                }
+                return (
+                  <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+                    {candidatos.map((p) => {
+                      const checked = addSelection.has(p.id);
+                      return (
+                        <li key={p.id}>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted",
+                              checked && "bg-primary/5",
+                            )}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => {
+                                setAddSelection((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(p.id)) next.delete(p.id);
+                                  else next.add(p.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-foreground">
+                                {p.nome || p.email || "Usuário"}
+                              </p>
+                              {(p.cargo || p.email) && (
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {p.cargo || p.email}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
+            </div>
+          </div>
+          <DialogFooter className="border-t border-border px-5 py-3">
+            <Button
+              variant="outline"
+              onClick={() => setManageOpen(false)}
+              disabled={savingMembers}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleAdicionarMembros();
+                setManageOpen(false);
+              }}
+              disabled={savingMembers || addSelection.size === 0}
+            >
+              {savingMembers ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Adicionar {addSelection.size > 0 ? `(${addSelection.size})` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
