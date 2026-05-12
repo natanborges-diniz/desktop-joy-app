@@ -72,6 +72,7 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todas" | "nao_lidas">("todas");
   const [novaOpen, setNovaOpen] = useState(false);
+  const [novoGrupoOpen, setNovoGrupoOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const onlineIds = usePresence();
 
