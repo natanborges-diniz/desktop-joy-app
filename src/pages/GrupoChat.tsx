@@ -148,7 +148,7 @@ export default function GrupoChat() {
       setLoading(true);
       const { data: g, error: gErr } = await supabase
         .from("conversas_grupo")
-        .select("id, nome, participantes")
+        .select("id, nome, participantes, criado_por")
         .eq("id", groupId!)
         .maybeSingle();
 
