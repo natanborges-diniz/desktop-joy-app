@@ -335,20 +335,33 @@ export function ConversasSidebar({ embedded = false, showEmptyCta = true }: Prop
       >
         <div className="flex h-14 items-center justify-between md:h-16">
           <h1 className="text-lg font-semibold md:text-xl">Conversas</h1>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setNovaOpen(true)}
-            className={cn(
-              "hidden gap-2 md:inline-flex",
-              embedded
-                ? "bg-primary/10 text-primary hover:bg-primary/20"
-                : "bg-white/15 text-header-foreground backdrop-blur hover:bg-white/25",
-            )}
-          >
-            <PenSquare className="h-4 w-4" />
-            Nova
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                className={cn(
+                  "hidden gap-2 md:inline-flex",
+                  embedded
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "bg-white/15 text-header-foreground backdrop-blur hover:bg-white/25",
+                )}
+              >
+                <PenSquare className="h-4 w-4" />
+                Nova
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => setNovaOpen(true)}>
+                <PenSquare className="mr-2 h-4 w-4" />
+                Nova conversa
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setNovoGrupoOpen(true)}>
+                <Users className="mr-2 h-4 w-4" />
+                Novo grupo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
