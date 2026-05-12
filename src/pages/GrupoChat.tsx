@@ -142,6 +142,14 @@ export default function GrupoChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Gerenciar participantes
+  const [manageOpen, setManageOpen] = useState(false);
+  const [allProfiles, setAllProfiles] = useState<ProfileLite[]>([]);
+  const [addSelection, setAddSelection] = useState<Set<string>>(new Set());
+  const [addSearch, setAddSearch] = useState("");
+  const [savingMembers, setSavingMembers] = useState(false);
+  const isOwner = !!grupo && !!user && grupo.criado_por === user.id;
+
   // Editar / apagar
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
