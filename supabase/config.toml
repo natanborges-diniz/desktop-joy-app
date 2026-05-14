@@ -1,1 +1,4 @@
 project_id = "xkyiciqlqpixmyrbzupg"
+
+[functions.proxy-loja-acao-agendamento]
+verify_jwt = true

@@ -22,7 +22,7 @@ export function useAcaoAgendamento() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: AcaoAgendamentoInput): Promise<AcaoAgendamentoResponse> => {
-      const { data, error } = await supabase.functions.invoke("loja-acao-agendamento", {
+      const { data, error } = await supabase.functions.invoke("proxy-loja-acao-agendamento", {
         body: input,
       });
       if (error) {
