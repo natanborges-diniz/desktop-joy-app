@@ -474,6 +474,23 @@ export default function LojaNovaDemanda() {
 
     setEnviando(true);
     const dadosEnvio: Record<string, string> = { ...dados };
+
+    // Normaliza campos monetários/decimais: aceita "750,00" ou "1.250,50" e envia "750.00"
+    for (const et of fluxoAtivo.etapas) {
+      const isDecimal = et.tipo_input === "decimal" || et.campo === "valor";
+      if (!isDecimal) continue;
+      const raw = dadosEnvio[et.campo];
+      if (raw == null || raw === "") continue;
+      const n = parseValorBR(raw);
+      if (!Number.isFinite(n) || n <= 0) {
+        setEnviando(false);
+        setErros((e) => ({ ...e, [et.campo]: "Valor inválido" }));
+        toast.error("Valor inválido");
+        return;
+      }
+      dadosEnvio[et.campo] = n.toFixed(2);
+    }
+
     if (fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada) {
       dadosEnvio.consulta_cpf_id = consultaCpfSelecionada;
     }
