@@ -148,7 +148,7 @@ function validar(et: Etapa, raw: string): string | null {
   if (!v) return null;
   const val = et.validacao ?? {};
   if (et.tipo_input === "decimal") {
-    const n = Number(v.replace(",", "."));
+    const n = parseValorBR(v);
     if (!Number.isFinite(n)) return "Informe um número válido";
     if (val.min != null && n < val.min) return `Mínimo: ${val.min}`;
     if (val.max != null && n > val.max) return `Máximo: ${val.max}`;
