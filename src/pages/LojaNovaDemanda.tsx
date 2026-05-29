@@ -90,9 +90,20 @@ function mascararCpf(raw: string | null | undefined): string {
   return `${d.slice(0, 3)}.***.***-${d.slice(9)}`;
 }
 
+export function parseValorBR(input: string | number | null | undefined): number {
+  if (input == null) return NaN;
+  if (typeof input === "number") return input;
+  const limpo = String(input).trim().replace(/[R$\s]/g, "");
+  if (!limpo) return NaN;
+  if (limpo.includes(",")) {
+    return Number(limpo.replace(/\./g, "").replace(",", "."));
+  }
+  return Number(limpo);
+}
+
 function formatarBRL(v: number | string | null | undefined): string {
   if (v == null || v === "") return "—";
-  const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+  const n = typeof v === "number" ? v : parseValorBR(v);
   if (!Number.isFinite(n)) return String(v);
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
