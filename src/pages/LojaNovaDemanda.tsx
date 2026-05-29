@@ -90,9 +90,20 @@ function mascararCpf(raw: string | null | undefined): string {
   return `${d.slice(0, 3)}.***.***-${d.slice(9)}`;
 }
 
+export function parseValorBR(input: string | number | null | undefined): number {
+  if (input == null) return NaN;
+  if (typeof input === "number") return input;
+  const limpo = String(input).trim().replace(/[R$\s]/g, "");
+  if (!limpo) return NaN;
+  if (limpo.includes(",")) {
+    return Number(limpo.replace(/\./g, "").replace(",", "."));
+  }
+  return Number(limpo);
+}
+
 function formatarBRL(v: number | string | null | undefined): string {
   if (v == null || v === "") return "—";
-  const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+  const n = typeof v === "number" ? v : parseValorBR(v);
   if (!Number.isFinite(n)) return String(v);
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -137,7 +148,7 @@ function validar(et: Etapa, raw: string): string | null {
   if (!v) return null;
   const val = et.validacao ?? {};
   if (et.tipo_input === "decimal") {
-    const n = Number(v.replace(",", "."));
+    const n = parseValorBR(v);
     if (!Number.isFinite(n)) return "Informe um número válido";
     if (val.min != null && n < val.min) return `Mínimo: ${val.min}`;
     if (val.max != null && n > val.max) return `Máximo: ${val.max}`;
@@ -463,6 +474,23 @@ export default function LojaNovaDemanda() {
 
     setEnviando(true);
     const dadosEnvio: Record<string, string> = { ...dados };
+
+    // Normaliza campos monetários/decimais: aceita "750,00" ou "1.250,50" e envia "750.00"
+    for (const et of fluxoAtivo.etapas) {
+      const isDecimal = et.tipo_input === "decimal" || et.campo === "valor";
+      if (!isDecimal) continue;
+      const raw = dadosEnvio[et.campo];
+      if (raw == null || raw === "") continue;
+      const n = parseValorBR(raw);
+      if (!Number.isFinite(n) || n <= 0) {
+        setEnviando(false);
+        setErros((e) => ({ ...e, [et.campo]: "Valor inválido" }));
+        toast.error("Valor inválido");
+        return;
+      }
+      dadosEnvio[et.campo] = n.toFixed(2);
+    }
+
     if (fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada) {
       dadosEnvio.consulta_cpf_id = consultaCpfSelecionada;
     }
