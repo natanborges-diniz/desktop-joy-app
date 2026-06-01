@@ -10,6 +10,7 @@ import ConversasList from "@/pages/ConversasList";
 import ConversaDetail from "@/pages/ConversaDetail";
 import GrupoChat from "@/pages/GrupoChat";
 import DemandasList from "@/pages/DemandasList";
+import DemandasLojas from "@/pages/DemandasLojas";
 import DemandaChat from "@/pages/DemandaChat";
 import LojaNovaDemanda from "@/pages/LojaNovaDemanda";
 import LojaMinhasDemandas from "@/pages/LojaMinhasDemandas";
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/conversas/:otherId" element={<ConversaDetail />} />
             <Route path="/grupos/:groupId" element={<GrupoChat />} />
             <Route path="/demandas" element={<DemandasList />} />
+            <Route path="/demandas-lojas" element={<DemandasLojas />} />
             <Route path="/demandas/:id" element={<DemandaChat />} />
             <Route path="/nova-demanda" element={<LojaNovaDemanda />} />
             <Route path="/agenda" element={<LojaAgenda />} />
