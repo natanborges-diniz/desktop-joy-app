@@ -1,14 +1,23 @@
 // Fluxo B — Lista de demandas que o operador (Atrium) abriu para esta loja.
 // Substitui o wizard antigo. O Fluxo A vive em /nova-demanda + /minhas-demandas.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Loader2, Plus, Users } from "lucide-react";
+import { AlertTriangle, ClipboardList, Loader2, Plus, Users } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PushGate } from "@/components/PushGate";
+import { useAtrasoAlertSound } from "@/hooks/useAtrasoAlertSound";
+import {
+  escalonamentosDe,
+  slaChipClass,
+  slaLabel,
+  slaLevelFromMinutes,
+  slaMinutesSince,
+} from "@/lib/sla";
 
 type Demanda = {
   id: string;
@@ -21,14 +30,29 @@ type Demanda = {
   ultima_mensagem_loja_at: string | null;
   vista_pelo_operador: boolean | null;
   created_at: string;
+  updated_at?: string | null;
   metadata: Record<string, unknown> | null;
 };
 
 export default function DemandasList() {
+  return (
+    <PushGate>
+      <DemandasListInner />
+    </PushGate>
+  );
+}
+
+function DemandasListInner() {
   const navigate = useNavigate();
   const { lojaNome, isLoja, loading: ctxLoading } = useLojaContext();
   const [items, setItems] = useState<Demanda[]>([]);
   const [loading, setLoading] = useState(true);
+  // re-render a cada minuto para refrescar SLA
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(i);
+  }, []);
 
   async function load() {
     if (!lojaNome) {
@@ -41,7 +65,7 @@ export default function DemandasList() {
     const { data } = await supabase
       .from("demandas_loja")
       .select(
-        "id,numero_curto,assunto,pergunta,status,loja_nome,solicitante_nome,ultima_mensagem_loja_at,vista_pelo_operador,created_at,metadata",
+        "id,numero_curto,assunto,pergunta,status,loja_nome,solicitante_nome,ultima_mensagem_loja_at,vista_pelo_operador,created_at,updated_at,metadata",
       )
       .or(
         `loja_nome.eq.${lojaNome},and(loja_nome.eq.__GRUPO__,metadata->lojas_nomes.cs.["${safe}"])`,
@@ -72,6 +96,18 @@ export default function DemandasList() {
       void supabase.removeChannel(ch);
     };
   }, [lojaNome]);
+
+  const atrasadasIds = useMemo(
+    () =>
+      items
+        .filter((d) => {
+          const esc = escalonamentosDe(d.metadata);
+          return d.status === "aberta" && !!esc.t30_at;
+        })
+        .map((d) => d.id),
+    [items],
+  );
+  useAtrasoAlertSound(atrasadasIds);
 
   return (
     <div className="flex h-full flex-col">
@@ -109,10 +145,23 @@ export default function DemandasList() {
             {items.map((d) => {
               const grupo = (d.metadata as any)?.grupo === true;
               const lojas: string[] = (d.metadata as any)?.lojas_nomes ?? [];
+              const esc = escalonamentosDe(d.metadata);
+              const isAberta = d.status === "aberta";
+              const t30 = !!esc.t30_at;
+              const t60 = !!esc.t60_at;
+              const isAtrasada = isAberta && t30;
+              const isSemResposta = d.status === "sem_resposta";
+              const slaMin = slaMinutesSince(d.updated_at ?? d.ultima_mensagem_loja_at ?? d.created_at);
+              const slaLvl = slaLevelFromMinutes(slaMin);
               return (
                 <li key={d.id}>
                   <Card
-                    className="cursor-pointer p-4 shadow-soft transition-shadow hover:shadow-elevated"
+                    className={
+                      "cursor-pointer p-4 shadow-soft transition-shadow hover:shadow-elevated " +
+                      (isAtrasada || isSemResposta
+                        ? "ring-2 ring-red-500/40 "
+                        : "")
+                    }
                     onClick={() => navigate(`/demandas/${d.id}`)}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -131,6 +180,30 @@ export default function DemandasList() {
                               Nova
                             </span>
                           )}
+                          {isSemResposta && (
+                            <span className="inline-flex animate-pulse items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+                              <AlertTriangle className="h-3 w-3" /> Sem resposta
+                            </span>
+                          )}
+                          {isAtrasada && !isSemResposta && (
+                            <span
+                              className={
+                                "inline-flex animate-pulse items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow " +
+                                (t60 ? "bg-red-700" : "bg-red-500")
+                              }
+                            >
+                              <AlertTriangle className="h-3 w-3" /> Atrasada
+                            </span>
+                          )}
+                          <span
+                            className={
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+                              slaChipClass(slaLvl)
+                            }
+                            title="Tempo desde a última atualização"
+                          >
+                            SLA {slaLabel(slaMin)}
+                          </span>
                         </div>
                         <h2 className="mt-1 truncate font-semibold text-foreground">
                           {d.assunto ?? d.pergunta?.slice(0, 80) ?? "Sem assunto"}

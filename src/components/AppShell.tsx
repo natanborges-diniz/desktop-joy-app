@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, User } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/auth/auth-context";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
@@ -8,6 +11,7 @@ import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
+import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 
 type NavItem = {
@@ -17,12 +21,14 @@ type NavItem = {
   exact: boolean;
   badge: "messages" | null;
   lojaOnly?: boolean;
+  supervisorOnly?: boolean;
 };
 
 const baseItems: NavItem[] = [
   { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" },
   { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, lojaOnly: true },
   { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, lojaOnly: true },
+  { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, supervisorOnly: true },
   { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, lojaOnly: true },
   { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, lojaOnly: true },
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
@@ -54,6 +60,25 @@ export default function AppShell() {
   useAppBadge(unread);
   useNotificacoesRealtime();
   const { isLoja } = useLojaContext();
+  const { user } = useAuth();
+  const [cargoLoja, setCargoLoja] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setCargoLoja(null);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("cargo_loja")
+        .eq("id", user.id)
+        .maybeSingle();
+      setCargoLoja(((data as any)?.cargo_loja as string) ?? null);
+    })();
+  }, [user]);
+
+  const isSupervisor = cargoLoja === "supervisor" || cargoLoja === "gerente";
 
   const isHome = location.pathname === "/";
   const isConversaRoute =
@@ -66,7 +91,11 @@ export default function AppShell() {
     /^\/grupos\/[^/]+/.test(location.pathname) ||
     /^\/demandas\/[^/]+/.test(location.pathname);
 
-  const items = baseItems.filter((it) => !it.lojaOnly || isLoja);
+  const items = baseItems.filter((it) => {
+    if (it.supervisorOnly) return isSupervisor;
+    if (it.lojaOnly) return isLoja;
+    return true;
+  });
   const bottomCols = items.length;
 
   return (
@@ -113,6 +142,7 @@ export default function AppShell() {
       {/* Conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
         <UpdateAvailableBanner />
+        <PushOnboardingBanner />
         <PendenciasBanner />
         <main className="min-h-0 flex-1 overflow-hidden">
           {/* Em "/" no desktop, mostra placeholder; no mobile a Outlet renderiza a lista */}
