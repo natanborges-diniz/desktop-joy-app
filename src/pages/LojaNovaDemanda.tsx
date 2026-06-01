@@ -206,24 +206,39 @@ export default function LojaNovaDemanda() {
     [opcoes],
   );
 
+  // Carrega opções do menu via RPC que combina cargo_loja + usuarios_visiveis + acesso_total.
+  // Lazy por parent_id: ao entrar em um submenu, busca os filhos daquele nível.
+  const nivelAtualId = trilha[trilha.length - 1]?.id ?? null;
   useEffect(() => {
+    if (!user) return;
     let alive = true;
     (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("bot_menu_opcoes")
-        .select("id,parent_id,tipo,fluxo,chave,titulo,emoji,ordem")
-        .eq("tipo_bot", "loja")
-        .eq("ativo", true)
-        .order("ordem", { ascending: true });
+      // Só mostra spinner se ainda não temos filhos cacheados para este nível
+      const jaTem = opcoes.some((o) => o.parent_id === nivelAtualId);
+      if (!jaTem) setLoading(true);
+      const { data, error } = await supabase.rpc("get_menu_opcoes_para_usuario" as never, {
+        _user_id: user.id,
+        _parent_id: nivelAtualId,
+      } as never);
       if (!alive) return;
-      setOpcoes(((data ?? []) as MenuOpcao[]).filter((o) => o.tipo !== "falar_equipe"));
+      if (error) {
+        toast.error("Não foi possível carregar o menu");
+        setLoading(false);
+        return;
+      }
+      const novos = ((data ?? []) as MenuOpcao[]).filter((o) => o.tipo !== "falar_equipe");
+      setOpcoes((prev) => {
+        // remove antigos deste parent e adiciona novos (mantém cache de outros níveis)
+        const semEste = prev.filter((o) => o.parent_id !== nivelAtualId);
+        const ids = new Set(novos.map((n) => n.id));
+        return [...semEste.filter((o) => !ids.has(o.id)), ...novos];
+      });
       setLoading(false);
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [user, nivelAtualId]);
 
   // Resolve nome do solicitante a partir do profile (vazio se for pessoa final)
   useEffect(() => {
