@@ -181,7 +181,7 @@ function validar(et: Etapa, raw: string): string | null {
 export default function LojaNovaDemanda() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lojaNome, codEmpresa, tipoUsuario, isLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome, codEmpresa, tipoUsuario, loading: ctxLoading } = useLojaContext();
   const { data: lojasAtivas = [] } = useLojasAtivas();
 
   const [opcoes, setOpcoes] = useState<MenuOpcao[]>([]);
