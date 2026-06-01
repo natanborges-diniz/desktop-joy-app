@@ -32,16 +32,17 @@ function trackActivity() {
   );
 }
 
-function reloadNow() {
+async function reloadNow() {
   // Limpa caches do workbox antes de recarregar, garantindo HTML fresco.
-  if ("caches" in window) {
-    caches.keys().then((keys) => {
-      keys.forEach((k) => caches.delete(k));
-      window.location.reload();
-    });
-  } else {
-    window.location.reload();
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch {
+    // ignora — recarrega de qualquer forma
   }
+  window.location.reload();
 }
 
 function promptUpdate(registration: ServiceWorkerRegistration) {
