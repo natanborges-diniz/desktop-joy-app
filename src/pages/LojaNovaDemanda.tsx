@@ -598,11 +598,6 @@ export default function LojaNovaDemanda() {
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : !isLoja ? (
-            <p className="mt-10 text-center text-sm text-muted-foreground">
-              Apenas usuários do tipo <strong>loja</strong> ou <strong>colaborador</strong> podem
-              abrir solicitações.
-            </p>
           ) : resultado ? (
             <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
               <div className="mb-3 flex items-center gap-2 text-primary">
