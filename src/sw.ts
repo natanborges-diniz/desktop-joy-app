@@ -40,11 +40,14 @@ self.addEventListener("push", (event: PushEvent) => {
   }
 
   const title = payload.title || "InFoco Message";
-  const options: NotificationOptions = {
+  const options: NotificationOptions & { renotify?: boolean } = {
     body: payload.body || "",
     icon: payload.icon || "/icon-192.png",
     badge: payload.badge || "/icon-192.png",
     tag: payload.tag,
+    // Cada nível de SLA (sla_t15_*, sla_t30_*, sla_t60_*) é uma tag distinta,
+    // mas garantimos renotify para que o usuário sempre seja avisado de novo.
+    renotify: true,
     data: { url: payload.url || "/" },
   };
 
