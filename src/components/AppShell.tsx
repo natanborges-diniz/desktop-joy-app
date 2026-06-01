@@ -142,6 +142,7 @@ export default function AppShell() {
       {/* Conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
         <UpdateAvailableBanner />
+        <PushOnboardingBanner />
         <PendenciasBanner />
         <main className="min-h-0 flex-1 overflow-hidden">
           {/* Em "/" no desktop, mostra placeholder; no mobile a Outlet renderiza a lista */}
