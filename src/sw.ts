@@ -6,8 +6,13 @@ import { NetworkFirst } from "workbox-strategies";
 
 declare const self: ServiceWorkerGlobalScope;
 
-// Auto-update + skip waiting
-self.skipWaiting();
+// Auto-update: o cliente decide quando aplicar via postMessage SKIP_WAITING.
+// Isso evita reload silencioso enquanto o usuário digita.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });

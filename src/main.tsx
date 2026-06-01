@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { initUpdateManager } from "./lib/update-manager";
 
 // ============ Service Worker registration with safety guards ============
 // SW NÃO deve registrar dentro do iframe do editor Lovable (quebra preview).
@@ -31,18 +32,11 @@ if (isInIframe || isPreviewHost) {
     navigator.serviceWorker
       .register("/sw.js", { type: "classic" })
       .then((registration) => {
-        // Checa atualizações sempre que a aba ganha foco — importante no iOS PWA.
-        const checkForUpdate = () => {
-          registration.update().catch(() => {});
-        };
-        window.addEventListener("focus", checkForUpdate);
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible") checkForUpdate();
-        });
+        initUpdateManager(registration);
       })
       .catch((err) => console.error("[SW] register failed:", err));
 
-    // Quando um novo SW assume controle, recarrega para pegar bundle novo.
+    // Quando o SW novo assume controle (após SKIP_WAITING), recarrega.
     let reloaded = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (reloaded) return;
