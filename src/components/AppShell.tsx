@@ -60,6 +60,25 @@ export default function AppShell() {
   useAppBadge(unread);
   useNotificacoesRealtime();
   const { isLoja } = useLojaContext();
+  const { user } = useAuth();
+  const [cargoLoja, setCargoLoja] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setCargoLoja(null);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("cargo_loja")
+        .eq("id", user.id)
+        .maybeSingle();
+      setCargoLoja(((data as any)?.cargo_loja as string) ?? null);
+    })();
+  }, [user]);
+
+  const isSupervisor = cargoLoja === "supervisor" || cargoLoja === "gerente";
 
   const isHome = location.pathname === "/";
   const isConversaRoute =
@@ -72,7 +91,11 @@ export default function AppShell() {
     /^\/grupos\/[^/]+/.test(location.pathname) ||
     /^\/demandas\/[^/]+/.test(location.pathname);
 
-  const items = baseItems.filter((it) => !it.lojaOnly || isLoja);
+  const items = baseItems.filter((it) => {
+    if (it.supervisorOnly) return isSupervisor;
+    if (it.lojaOnly) return isLoja;
+    return true;
+  });
   const bottomCols = items.length;
 
   return (
