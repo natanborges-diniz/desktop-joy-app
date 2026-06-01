@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, User } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/auth/auth-context";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
@@ -8,6 +11,7 @@ import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
+import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 
 type NavItem = {
@@ -17,12 +21,14 @@ type NavItem = {
   exact: boolean;
   badge: "messages" | null;
   lojaOnly?: boolean;
+  supervisorOnly?: boolean;
 };
 
 const baseItems: NavItem[] = [
   { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" },
   { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, lojaOnly: true },
   { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, lojaOnly: true },
+  { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, supervisorOnly: true },
   { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, lojaOnly: true },
   { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, lojaOnly: true },
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
