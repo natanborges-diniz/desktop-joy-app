@@ -70,6 +70,8 @@ export function useLojaContext(): LojaContext {
     tipoUsuario === "colaborador" ||
     tipoUsuario === "supervisor" ||
     tipoUsuario === "gerente" ||
+    tipoUsuario === "setor_operador" ||
+    tipoUsuario === "setor_gestor" ||
     !!lojaNome;
 
   return { loading, lojaNome, codEmpresa, tipoUsuario, isLoja };
