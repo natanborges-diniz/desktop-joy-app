@@ -1,13 +1,35 @@
 import { RefreshCw } from "lucide-react";
+import { useState } from "react";
 import { useAppUpdateAvailable } from "@/hooks/useAppUpdateAvailable";
 
 export function UpdateAvailableBanner() {
   const updateAvailable = useAppUpdateAvailable();
+  const [applying, setApplying] = useState(false);
 
   if (!updateAvailable) return null;
 
-  function recarregar() {
-    window.location.reload();
+  async function recarregar() {
+    setApplying(true);
+    try {
+      // Pede pro SW em espera assumir o controle. O listener
+      // 'controllerchange' (em main.tsx) cuida do reload em si.
+      const reg = await navigator.serviceWorker?.getRegistration();
+      const waiting = reg?.waiting;
+      if (waiting) {
+        waiting.postMessage({ type: "SKIP_WAITING" });
+        // Fallback: se em 2s nada acontecer, força reload.
+        setTimeout(() => window.location.reload(), 2000);
+        return;
+      }
+      // Sem SW em espera → limpa caches e recarrega direto.
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
   }
 
   return (
@@ -18,9 +40,10 @@ export function UpdateAvailableBanner() {
       </p>
       <button
         onClick={recarregar}
-        className="shrink-0 rounded-md bg-background/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-background/30"
+        disabled={applying}
+        className="shrink-0 rounded-md bg-background/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-background/30 disabled:opacity-60"
       >
-        Recarregar
+        {applying ? "Atualizando..." : "Recarregar"}
       </button>
     </div>
   );
