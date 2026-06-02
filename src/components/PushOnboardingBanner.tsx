@@ -12,7 +12,15 @@ export function PushOnboardingBanner() {
   const { profile } = useAuth();
   const { supported, permission, subscribed, loading, subscribe } = usePushSubscription();
 
-  if (profile?.tipo_usuario !== "loja") return null;
+  const tipo = profile?.tipo_usuario;
+  const isLojaUser =
+    tipo === "loja" ||
+    tipo === "colaborador" ||
+    tipo === "supervisor" ||
+    tipo === "gerente" ||
+    tipo === "setor_operador" ||
+    tipo === "setor_gestor";
+  if (!isLojaUser) return null;
   if (subscribed === null) return null; // ainda checando
   if (subscribed) return null;
 
