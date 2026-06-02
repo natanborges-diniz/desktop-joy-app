@@ -63,7 +63,14 @@ export function useLojaContext(): LojaContext {
   }, [user]);
 
   const tipoUsuario = profile?.tipo_usuario ?? null;
-  const isLoja = tipoUsuario === "loja" || tipoUsuario === "colaborador";
+  // Considera "loja" quem tem tipo_usuario loja/colaborador OU possui vínculo
+  // em user_roles com uma loja_nome (cobre supervisor/gerente novos).
+  const isLoja =
+    tipoUsuario === "loja" ||
+    tipoUsuario === "colaborador" ||
+    tipoUsuario === "supervisor" ||
+    tipoUsuario === "gerente" ||
+    !!lojaNome;
 
   return { loading, lojaNome, codEmpresa, tipoUsuario, isLoja };
 }
