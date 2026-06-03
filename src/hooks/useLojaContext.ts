@@ -7,18 +7,28 @@ export type LojaContext = {
   lojaNome: string | null;
   codEmpresa: string | null;
   tipoUsuario: string | null;
-  isLoja: boolean; // loja ou colaborador (vê área de demandas)
+  /** @deprecated Use podeMenuLoja / podeSupervisao */
+  isLoja: boolean;
+  // Fonte da verdade: user_acessos do Atrium
+  acessoTotal: boolean;
+  podeMenuLoja: boolean; // mostra Abrir / Agenda / Minhas / Demandas
+  podeSupervisao: boolean; // mostra "Minhas lojas"
+  podeChat1a1: boolean; // mostra Conversas
+  podeChatGrupo: boolean; // mostra grupos
 };
 
 /**
- * Resolve a loja do usuário logado a partir de:
- *   user_roles.loja_nome  →  telefones_lojas.cod_empresa (join por nome)
- * E o tipo_usuario do profile.
+ * Lê permissões de user_acessos (mesma fonte usada pelo Atrium).
+ * tipo_usuario é apenas informativo — NUNCA usado para decidir menu.
  */
 export function useLojaContext(): LojaContext {
   const { user, profile } = useAuth();
   const [lojaNome, setLojaNome] = useState<string | null>(null);
   const [codEmpresa, setCodEmpresa] = useState<string | null>(null);
+  const [acesso, setAcesso] = useState<{
+    acesso_total: boolean;
+    modulos: Record<string, unknown>;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,19 +36,41 @@ export function useLojaContext(): LojaContext {
     if (!user) {
       setLojaNome(null);
       setCodEmpresa(null);
+      setAcesso(null);
       setLoading(false);
       return;
     }
     (async () => {
       setLoading(true);
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("loja_nome")
+
+      // 1) user_acessos — fonte da verdade
+      const { data: ua } = await supabase
+        .from("user_acessos" as any)
+        .select("acesso_total, modulos, lojas")
         .eq("user_id", user.id)
-        .not("loja_nome", "is", null)
-        .limit(1)
         .maybeSingle();
-      const nome = (roleRow as any)?.loja_nome ?? null;
+
+      if (alive) {
+        setAcesso({
+          acesso_total: !!(ua as any)?.acesso_total,
+          modulos: ((ua as any)?.modulos as Record<string, unknown>) ?? {},
+        });
+      }
+
+      // 2) loja vinculada (mantido p/ agenda/demandas filtrarem por loja_nome)
+      const lojasArr = ((ua as any)?.lojas as string[] | null) ?? null;
+      let nome: string | null = lojasArr?.[0] ?? null;
+
+      if (!nome) {
+        const { data: roleRow } = await supabase
+          .from("user_roles")
+          .select("loja_nome")
+          .eq("user_id", user.id)
+          .not("loja_nome", "is", null)
+          .limit(1)
+          .maybeSingle();
+        nome = (roleRow as any)?.loja_nome ?? null;
+      }
       if (!alive) return;
       setLojaNome(nome);
 
@@ -62,17 +94,24 @@ export function useLojaContext(): LojaContext {
     };
   }, [user]);
 
-  const tipoUsuario = profile?.tipo_usuario ?? null;
-  // Considera "loja" quem tem tipo_usuario loja/colaborador OU possui vínculo
-  // em user_roles com uma loja_nome (cobre supervisor/gerente novos).
-  const isLoja =
-    tipoUsuario === "loja" ||
-    tipoUsuario === "colaborador" ||
-    tipoUsuario === "supervisor" ||
-    tipoUsuario === "gerente" ||
-    tipoUsuario === "setor_operador" ||
-    tipoUsuario === "setor_gestor" ||
-    !!lojaNome;
+  const acessoTotal = !!acesso?.acesso_total;
+  const has = (m: string) => acessoTotal || acesso?.modulos?.[m] != null;
 
-  return { loading, lojaNome, codEmpresa, tipoUsuario, isLoja };
+  const podeMenuLoja = has("menu_loja");
+  const podeSupervisao = has("demandas_minhas_lojas");
+  const podeChat1a1 = has("chat_1a1");
+  const podeChatGrupo = has("chat_grupo");
+
+  return {
+    loading,
+    lojaNome,
+    codEmpresa,
+    tipoUsuario: profile?.tipo_usuario ?? null,
+    isLoja: podeMenuLoja, // compat
+    acessoTotal,
+    podeMenuLoja,
+    podeSupervisao,
+    podeChat1a1,
+    podeChatGrupo,
+  };
 }
