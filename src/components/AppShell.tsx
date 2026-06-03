@@ -59,26 +59,7 @@ export default function AppShell() {
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
   useNotificacoesRealtime();
-  const { isLoja } = useLojaContext();
-  const { user } = useAuth();
-  const [cargoLoja, setCargoLoja] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) {
-      setCargoLoja(null);
-      return;
-    }
-    void (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("cargo_loja")
-        .eq("id", user.id)
-        .maybeSingle();
-      setCargoLoja(((data as any)?.cargo_loja as string) ?? null);
-    })();
-  }, [user]);
-
-  const isSupervisor = cargoLoja === "supervisor" || cargoLoja === "gerente";
+  const { acessoTotal, podeMenuLoja, podeSupervisao, podeChat1a1, podeChatGrupo } = useLojaContext();
 
   const isHome = location.pathname === "/";
   const isConversaRoute =
@@ -92,8 +73,11 @@ export default function AppShell() {
     /^\/demandas\/[^/]+/.test(location.pathname);
 
   const items = baseItems.filter((it) => {
-    if (it.supervisorOnly) return isSupervisor;
-    if (it.lojaOnly) return isLoja;
+    if (acessoTotal) return true;
+    if (!it.modulo) return true;
+    if (it.modulo === "menu_loja") return podeMenuLoja;
+    if (it.modulo === "demandas_minhas_lojas") return podeSupervisao;
+    if (it.modulo === "chat_1a1") return podeChat1a1 || podeChatGrupo;
     return true;
   });
   const bottomCols = items.length;
