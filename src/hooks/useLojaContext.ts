@@ -120,7 +120,7 @@ export function useLojaContext(): LojaContext {
     loading,
     lojaNome,
     codEmpresa,
-    tipoUsuario: profile?.tipo_usuario ?? null,
+    tipoUsuario,
     isLoja: podeMenuLoja, // compat
     acessoTotal,
     podeMenuLoja,
