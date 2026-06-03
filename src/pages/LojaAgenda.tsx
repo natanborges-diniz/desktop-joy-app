@@ -114,7 +114,7 @@ function formatBRL(n: number | null | undefined): string {
 
 export default function LojaAgenda() {
   const navigate = useNavigate();
-  const { lojaNome, isLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
   const [cursor, setCursor] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [view, setView] = useState<"month" | "list">("month");
@@ -265,7 +265,7 @@ export default function LojaAgenda() {
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : !isLoja ? (
+          ) : !podeMenuLoja ? (
             <p className="mt-10 text-center text-sm text-muted-foreground">
               Apenas usuários do tipo <strong>loja</strong> ou <strong>colaborador</strong> podem
               ver a agenda.

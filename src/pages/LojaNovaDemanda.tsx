@@ -181,7 +181,7 @@ function validar(et: Etapa, raw: string): string | null {
 export default function LojaNovaDemanda() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lojaNome, codEmpresa, tipoUsuario, isLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome, codEmpresa, tipoUsuario, podeMenuLoja, loading: ctxLoading } = useLojaContext();
   const { data: lojasAtivas = [] } = useLojasAtivas();
 
   const [opcoes, setOpcoes] = useState<MenuOpcao[]>([]);
@@ -583,7 +583,7 @@ export default function LojaNovaDemanda() {
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : !isLoja ? (
+          ) : !podeMenuLoja ? (
             <p className="mt-10 text-center text-sm text-muted-foreground">
               Apenas usuários do tipo <strong>loja</strong> ou <strong>colaborador</strong> podem
               abrir solicitações.
