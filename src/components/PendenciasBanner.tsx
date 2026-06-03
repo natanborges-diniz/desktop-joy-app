@@ -14,7 +14,7 @@ export function PendenciasBanner() {
   if (location.pathname.startsWith("/notificacoes")) return null;
 
   return (
-    <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-destructive/40 bg-destructive px-4 py-2 text-destructive-foreground shadow-soft">
+    <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-destructive/40 bg-destructive px-4 py-2 pt-safe text-destructive-foreground shadow-soft">
       <Bell className="h-4 w-4 shrink-0 animate-pulse" />
       <p className="min-w-0 flex-1 text-sm font-medium">
         Você tem {count} aviso{count > 1 ? "s" : ""} pendente{count > 1 ? "s" : ""}. Resolva agora.

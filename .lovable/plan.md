@@ -1,23 +1,16 @@
-## Diagnóstico
+## Problema
 
-O erro **"Failed to send a request to the Edge Function"** acontece porque:
+No iPhone (PWA / Safari), o banner vermelho "Você tem X avisos pendentes" fica colado no topo da tela e é cortado pelo notch / Dynamic Island, escondendo o texto e o botão "Ver avisos".
 
-- `src/integrations/supabase/client.ts` aponta para `kvggebtnqmxydtwaumqz` (o backend compartilhado com o Atrium‑link).
-- A função `proxy-loja-acao-agendamento` foi deployada em `xkyiciqlqpixmyrbzupg` (Lovable Cloud deste projeto), num backend que o messenger nem usa.
-- `supabase.functions.invoke("proxy-loja-acao-agendamento")` busca a função em `kvggebtnqmxydtwaumqz` → 404.
+Causa: em `src/components/PendenciasBanner.tsx`, o banner usa `sticky top-0` sem nenhum padding para `env(safe-area-inset-top)`. Como ele é o primeiro elemento renderizado dentro do `<main>` do `AppShell`, nada o protege da área do notch.
 
-Além disso, o proxy era desnecessário desde o início: a `loja-acao-agendamento` no projeto Atrium‑link já aceita **JWT do Atrium** (modo 1 — Authorization: Bearer), e os usuários do messenger são exatamente os mesmos `auth.users` do Atrium. Só precisa chamar direto.
+## Correção
 
-## Mudanças
+Arquivo: `src/components/PendenciasBanner.tsx`
 
-1. **`src/hooks/useAcaoAgendamento.ts`** — trocar `"proxy-loja-acao-agendamento"` de volta para `"loja-acao-agendamento"` (linha 25).
+- Adicionar `pt-safe` (utilitário já usado no projeto, ex.: bottom nav em `AppShell`) à classe do banner, para empurrar o conteúdo abaixo da `safe-area-inset-top` no iOS.
+- Manter `py-2` para o espaçamento interno padrão; o `pt-safe` adiciona o offset do notch acima desse padding.
 
-2. **Remover `supabase/functions/proxy-loja-acao-agendamento/`** — função órfã, não tem como ser alcançada pelo client.
+Resultado esperado: o ícone do sino, o texto "Você tem N avisos pendentes. Resolva agora." e o botão "VER AVISOS" passam a aparecer completos abaixo da Dynamic Island / status bar no iPhone, sem cortes.
 
-3. **`supabase/config.toml`** — remover o bloco `[functions.proxy-loja-acao-agendamento]`.
-
-4. **Secret `INTERNAL_SERVICE_SECRET`** — pode ser removido depois do Lovable Cloud deste projeto (não é usado por nada aqui); deixo essa exclusão para você fazer quando confirmar que nenhuma outra função local depende.
-
-## Validação
-
-Após aplicar, clicar em **Registrar** no card "Registrar venda fechada" deve chamar `kvggebtnqmxydtwaumqz/functions/v1/loja-acao-agendamento` com o JWT do usuário logado e responder `{ ok: true, status: "venda_fechada" }`. Se quiser, eu acompanho os logs depois pra confirmar.
+Escopo: apenas estilo/CSS no componente do banner. Sem mudanças em lógica, dados ou outras telas.
