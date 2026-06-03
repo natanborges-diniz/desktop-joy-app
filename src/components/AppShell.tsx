@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/auth/auth-context";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
@@ -14,25 +11,25 @@ import { PendenciasBanner } from "@/components/PendenciasBanner";
 import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 
+type Modulo = "menu_loja" | "demandas_minhas_lojas" | "chat_1a1" | null;
 type NavItem = {
   to: string;
   label: string;
   icon: typeof MessageSquare;
   exact: boolean;
   badge: "messages" | null;
-  lojaOnly?: boolean;
-  supervisorOnly?: boolean;
+  modulo: Modulo;
 };
 
 const baseItems: NavItem[] = [
-  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" },
-  { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, lojaOnly: true },
-  { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, lojaOnly: true },
-  { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, supervisorOnly: true },
-  { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, lojaOnly: true },
-  { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, lojaOnly: true },
-  { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
-  { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null },
+  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages", modulo: "chat_1a1" },
+  { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
+  { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null, modulo: null },
+  { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
 ];
 
 function MobileBadge({ count }: { count: number }) {
@@ -59,26 +56,7 @@ export default function AppShell() {
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
   useNotificacoesRealtime();
-  const { isLoja } = useLojaContext();
-  const { user } = useAuth();
-  const [cargoLoja, setCargoLoja] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) {
-      setCargoLoja(null);
-      return;
-    }
-    void (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("cargo_loja")
-        .eq("id", user.id)
-        .maybeSingle();
-      setCargoLoja(((data as any)?.cargo_loja as string) ?? null);
-    })();
-  }, [user]);
-
-  const isSupervisor = cargoLoja === "supervisor" || cargoLoja === "gerente";
+  const { acessoTotal, podeMenuLoja, podeSupervisao, podeChat1a1, podeChatGrupo } = useLojaContext();
 
   const isHome = location.pathname === "/";
   const isConversaRoute =
@@ -92,8 +70,11 @@ export default function AppShell() {
     /^\/demandas\/[^/]+/.test(location.pathname);
 
   const items = baseItems.filter((it) => {
-    if (it.supervisorOnly) return isSupervisor;
-    if (it.lojaOnly) return isLoja;
+    if (acessoTotal) return true;
+    if (!it.modulo) return true;
+    if (it.modulo === "menu_loja") return podeMenuLoja;
+    if (it.modulo === "demandas_minhas_lojas") return podeSupervisao;
+    if (it.modulo === "chat_1a1") return podeChat1a1 || podeChatGrupo;
     return true;
   });
   const bottomCols = items.length;

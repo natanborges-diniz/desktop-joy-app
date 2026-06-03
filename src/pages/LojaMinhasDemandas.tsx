@@ -38,7 +38,7 @@ type Comentario = {
 export default function LojaMinhasDemandas() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const { lojaNome, isLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
 
   const [items, setItems] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +107,7 @@ export default function LojaMinhasDemandas() {
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : !isLoja ? (
+        ) : !podeMenuLoja ? (
           <p className="mt-10 text-center text-sm text-muted-foreground">
             Apenas lojas/colaboradores acessam esta área.
           </p>

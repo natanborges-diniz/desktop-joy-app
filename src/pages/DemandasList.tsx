@@ -44,7 +44,7 @@ export default function DemandasList() {
 
 function DemandasListInner() {
   const navigate = useNavigate();
-  const { lojaNome, isLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
   const [items, setItems] = useState<Demanda[]>([]);
   const [loading, setLoading] = useState(true);
   // re-render a cada minuto para refrescar SLA
@@ -131,7 +131,7 @@ function DemandasListInner() {
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : !isLoja ? (
+        ) : !podeMenuLoja ? (
           <p className="mt-10 text-center text-sm text-muted-foreground">
             Apenas lojas/colaboradores acessam esta área.
           </p>
