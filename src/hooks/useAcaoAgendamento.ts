@@ -26,11 +26,24 @@ export function useAcaoAgendamento() {
         body: input,
       });
       if (error) {
-        const msg =
-          (error as { context?: { error?: string }; message?: string }).context?.error ??
-          error.message ??
-          "Falha ao registrar ação";
-        throw new Error(msg);
+        // supabase-js v2: error.context costuma ser uma Response — extrai o body
+        let msg: string | undefined;
+        const ctx = (error as { context?: unknown }).context;
+        if (ctx instanceof Response) {
+          try {
+            const body = await ctx.clone().json();
+            msg = body?.error ?? body?.message;
+          } catch {
+            try {
+              msg = await ctx.clone().text();
+            } catch {
+              /* noop */
+            }
+          }
+        } else if (ctx && typeof ctx === "object") {
+          msg = (ctx as { error?: string }).error;
+        }
+        throw new Error(msg || error.message || "Falha ao registrar ação");
       }
       return data as AcaoAgendamentoResponse;
     },
