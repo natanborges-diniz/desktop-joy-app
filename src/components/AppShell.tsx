@@ -14,25 +14,25 @@ import { PendenciasBanner } from "@/components/PendenciasBanner";
 import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 
+type Modulo = "menu_loja" | "demandas_minhas_lojas" | "chat_1a1" | null;
 type NavItem = {
   to: string;
   label: string;
   icon: typeof MessageSquare;
   exact: boolean;
   badge: "messages" | null;
-  lojaOnly?: boolean;
-  supervisorOnly?: boolean;
+  modulo: Modulo;
 };
 
 const baseItems: NavItem[] = [
-  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages" },
-  { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, lojaOnly: true },
-  { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, lojaOnly: true },
-  { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, supervisorOnly: true },
-  { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, lojaOnly: true },
-  { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, lojaOnly: true },
-  { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null },
-  { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null },
+  { to: "/", label: "Conversas", icon: MessageSquare, exact: true, badge: "messages", modulo: "chat_1a1" },
+  { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/demandas", label: "Demandas", icon: Inbox, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
+  { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null, modulo: null },
+  { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
 ];
 
 function MobileBadge({ count }: { count: number }) {
