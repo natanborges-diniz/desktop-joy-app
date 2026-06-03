@@ -97,16 +97,30 @@ export function useLojaContext(): LojaContext {
   const acessoTotal = !!acesso?.acesso_total;
   const has = (m: string) => acessoTotal || acesso?.modulos?.[m] != null;
 
-  const podeMenuLoja = has("menu_loja");
-  const podeSupervisao = has("demandas_minhas_lojas");
-  const podeChat1a1 = has("chat_1a1");
-  const podeChatGrupo = has("chat_grupo");
+  // Fallback legado: se usuário não tem linha em user_acessos, usa tipo_usuario + lojaNome
+  const tipoUsuario = profile?.tipo_usuario ?? null;
+  const legadoIsLoja =
+    !acesso &&
+    (tipoUsuario === "loja" ||
+      tipoUsuario === "colaborador" ||
+      tipoUsuario === "supervisor" ||
+      tipoUsuario === "gerente" ||
+      tipoUsuario === "setor_operador" ||
+      tipoUsuario === "setor_gestor" ||
+      !!lojaNome);
+  const legadoIsSupervisor =
+    !acesso && (tipoUsuario === "supervisor" || tipoUsuario === "gerente");
+
+  const podeMenuLoja = has("menu_loja") || legadoIsLoja;
+  const podeSupervisao = has("demandas_minhas_lojas") || legadoIsSupervisor;
+  const podeChat1a1 = has("chat_1a1") || !acesso; // legado: todos viam Conversas
+  const podeChatGrupo = has("chat_grupo") || !acesso;
 
   return {
     loading,
     lojaNome,
     codEmpresa,
-    tipoUsuario: profile?.tipo_usuario ?? null,
+    tipoUsuario,
     isLoja: podeMenuLoja, // compat
     acessoTotal,
     podeMenuLoja,
