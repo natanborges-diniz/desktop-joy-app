@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, ShieldCheck, User } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, ShieldCheck, User, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
@@ -28,6 +28,7 @@ const baseItems: NavItem[] = [
   { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
   { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/cashback", label: "Cashback", icon: Wallet, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null, modulo: null },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
 ];
