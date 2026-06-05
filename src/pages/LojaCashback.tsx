@@ -91,7 +91,7 @@ export default function LojaCashback() {
           <Tabs defaultValue="consultar" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="consultar">Consultar saldo</TabsTrigger>
-              <TabsTrigger value="registrar">Registrar resgate</TabsTrigger>
+              <TabsTrigger value="registrar">Registrar venda</TabsTrigger>
             </TabsList>
             <TabsContent value="consultar" className="mt-4">
               <ConsultarTab />
@@ -367,7 +367,7 @@ function RegistrarTab() {
       }
       toast.error(data.mensagem || "Erro desconhecido.");
     } catch (e: any) {
-      toast.error(e?.message ?? "Falha ao registrar resgate.");
+      toast.error(e?.message ?? "Falha ao registrar venda.");
     } finally {
       setEnviando(false);
     }
@@ -378,7 +378,7 @@ function RegistrarTab() {
       <Card className="p-5 shadow-soft">
         <div className="flex flex-col items-center gap-3 text-center">
           <CheckCircle2 className="h-10 w-10 text-primary" />
-          <h2 className="text-lg font-semibold">Resgate registrado!</h2>
+          <h2 className="text-lg font-semibold">Venda registrada!</h2>
           <p className="text-sm text-muted-foreground">
             Cashback gerado: <strong>{BRL(okResp.credito_gerado.valor)}</strong>
             {okResp.credito_gerado.liberado_em && (
