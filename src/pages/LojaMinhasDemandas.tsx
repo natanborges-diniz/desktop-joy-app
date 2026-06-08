@@ -204,7 +204,9 @@ function DetalheSolicitacao({
     setLoading(true);
     const { data } = await supabase
       .from("solicitacao_comentarios")
-      .select("*")
+      .select(
+        "id, solicitacao_id, autor_id, autor_nome, conteudo, tipo, created_at, anexo_url, anexo_nome, anexo_mime, metadata",
+      )
       .eq("solicitacao_id", solicitacao.id)
       .order("created_at");
     setComents((data ?? []) as Comentario[]);
