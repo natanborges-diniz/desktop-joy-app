@@ -33,6 +33,10 @@ type Comentario = {
   autor_nome: string | null;
   autor_id: string | null;
   created_at: string;
+  anexo_url?: string | null;
+  anexo_nome?: string | null;
+  anexo_mime?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export default function LojaMinhasDemandas() {
