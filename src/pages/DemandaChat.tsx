@@ -165,7 +165,7 @@ export default function DemandaChat() {
     setUploading(true);
     try {
       const { blob, ext, mime, nome } = await normalizarImagem(file);
-      const path = `demandas/${user.id}/${Date.now()}.${ext}`;
+      const path = `${user.id}/demandas/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
         .from(ANEXOS_BUCKET)
         .upload(path, blob, { contentType: mime, upsert: false });
