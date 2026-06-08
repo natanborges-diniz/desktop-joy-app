@@ -299,7 +299,8 @@ function DetalheSolicitacao({
                       {c.autor_nome ?? "Operador"}
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap">{c.conteudo}</p>
+                  {c.conteudo && <p className="whitespace-pre-wrap">{c.conteudo}</p>}
+                  {c.anexo_url && <AnexoCard url={c.anexo_url} nome={c.anexo_nome} mime={c.anexo_mime} meu={meu} />}
                   <p className="mt-1 text-[10px] opacity-70">
                     {format(new Date(c.created_at), "d MMM HH:mm", { locale: ptBR })}
                   </p>
