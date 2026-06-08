@@ -25,7 +25,13 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster />
-    <Sonner position="top-center" richColors closeButton />
+    <Sonner
+      position="top-center"
+      richColors
+      closeButton
+      offset="calc(env(safe-area-inset-top, 0px) + 12px)"
+      mobileOffset="calc(env(safe-area-inset-top, 0px) + 12px)"
+    />
     <BrowserRouter>
       <AuthProvider>
         <Routes>
