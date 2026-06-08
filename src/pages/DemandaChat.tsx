@@ -132,22 +132,56 @@ export default function DemandaChat() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs.length]);
 
+  async function normalizarImagem(file: File): Promise<{ blob: Blob; ext: string; mime: string; nome: string }> {
+    // Converte qualquer imagem (incl. HEIC do iPhone) para JPEG redimensionado.
+    // Mantém arquivos não-imagem como vieram.
+    const ehImagem =
+      file.type.startsWith("image/") ||
+      /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name);
+    if (!ehImagem) {
+      const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
+      return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
+    }
+    const bitmap = await createImageBitmap(file);
+    const MAX = 1600;
+    const ratio = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * ratio);
+    const h = Math.round(bitmap.height * ratio);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas indisponível");
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const blob: Blob = await new Promise((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error("Falha ao converter imagem"))), "image/jpeg", 0.85),
+    );
+    const baseNome = file.name.replace(/\.[^.]+$/, "");
+    return { blob, ext: "jpg", mime: "image/jpeg", nome: `${baseNome}.jpg` };
+  }
+
   async function uploadAnexo(file: File) {
     if (!user) return;
     setUploading(true);
-    const ext = file.name.split(".").pop() ?? "bin";
-    const path = `demandas/${user.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
-      .from(ANEXOS_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (error) {
+    try {
+      const { blob, ext, mime, nome } = await normalizarImagem(file);
+      const path = `demandas/${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from(ANEXOS_BUCKET)
+        .upload(path, blob, { contentType: mime, upsert: false });
+      if (error) {
+        console.error("[uploadAnexo] erro:", error);
+        toast.error(`Falha ao enviar anexo: ${error.message ?? "erro desconhecido"}`);
+        return;
+      }
+      const { data } = supabase.storage.from(ANEXOS_BUCKET).getPublicUrl(path);
+      setAnexo({ url: data.publicUrl, mime, nome });
+    } catch (e: any) {
+      console.error("[uploadAnexo] exceção:", e);
+      toast.error(`Falha ao processar anexo: ${e?.message ?? "erro desconhecido"}`);
+    } finally {
       setUploading(false);
-      toast.error("Falha ao enviar anexo");
-      return;
     }
-    const { data } = supabase.storage.from(ANEXOS_BUCKET).getPublicUrl(path);
-    setAnexo({ url: data.publicUrl, mime: file.type, nome: file.name });
-    setUploading(false);
   }
 
   async function enviar() {
@@ -296,6 +330,7 @@ export default function DemandaChat() {
           <input
             ref={fileRef}
             type="file"
+            accept="image/*,application/pdf"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
