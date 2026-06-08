@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, MessageSquarePlus, Send } from "lucide-react";
+import { ArrowLeft, FileText, ImageIcon, Loader2, MessageSquarePlus, Send } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
