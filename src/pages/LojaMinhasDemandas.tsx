@@ -332,3 +332,58 @@ function DetalheSolicitacao({
     </>
   );
 }
+
+function AnexoCard({
+  url,
+  nome,
+  mime,
+  meu,
+}: {
+  url: string;
+  nome?: string | null;
+  mime?: string | null;
+  meu: boolean;
+}) {
+  const isImage = (mime ?? "").startsWith("image/");
+  const displayName = nome ?? (isImage ? "Imagem" : "Anexo");
+
+  if (isImage) {
+    return (
+      <button
+        type="button"
+        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+        className="mt-2 block overflow-hidden rounded-lg border border-border/50"
+      >
+        <img src={url} alt={displayName} className="max-h-64 w-full object-cover" />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+      className={`mt-2 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition-colors ${
+        meu
+          ? "border-primary-foreground/30 bg-primary-foreground/10 hover:bg-primary-foreground/15"
+          : "border-border bg-muted/50 hover:bg-muted"
+      }`}
+    >
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
+          meu ? "bg-primary-foreground/15" : "bg-background"
+        }`}
+      >
+        {(mime ?? "").includes("pdf") ? (
+          <FileText className="h-4 w-4" />
+        ) : (
+          <ImageIcon className="h-4 w-4" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{displayName}</span>
+        <span className="block truncate opacity-70">Toque para abrir</span>
+      </span>
+    </button>
+  );
+}
