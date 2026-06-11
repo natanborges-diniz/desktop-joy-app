@@ -33,6 +33,27 @@ type DemandaMsg = {
   created_at: string;
 };
 
+function arquivoOriginal(file: File): { blob: Blob; ext: string; mime: string; nome: string } {
+  const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
+  return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
+}
+
+async function carregarImagem(file: File): Promise<HTMLImageElement> {
+  return await new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Falha ao ler imagem"));
+    };
+    img.src = url;
+  });
+}
+
 export default function DemandaChat() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -133,26 +154,23 @@ export default function DemandaChat() {
   }, [msgs.length]);
 
   async function normalizarImagem(file: File): Promise<{ blob: Blob; ext: string; mime: string; nome: string }> {
-    // Converte qualquer imagem (incl. HEIC do iPhone) para JPEG redimensionado.
-    // Mantém arquivos não-imagem como vieram.
-    const ehImagem =
-      file.type.startsWith("image/") ||
-      /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name);
-    if (!ehImagem) {
-      const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
-      return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
-    }
-    const bitmap = await createImageBitmap(file);
+    const ehHeic = /\.(heic|heif)$/i.test(file.name) || /image\/(heic|heif)/i.test(file.type);
+    if (!ehHeic) return arquivoOriginal(file);
+
+    const imagem = typeof createImageBitmap === "function"
+      ? await createImageBitmap(file)
+      : await carregarImagem(file);
+
     const MAX = 1600;
-    const ratio = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
-    const w = Math.round(bitmap.width * ratio);
-    const h = Math.round(bitmap.height * ratio);
+    const ratio = Math.min(1, MAX / Math.max(imagem.width, imagem.height));
+    const w = Math.round(imagem.width * ratio);
+    const h = Math.round(imagem.height * ratio);
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas indisponível");
-    ctx.drawImage(bitmap, 0, 0, w, h);
+    ctx.drawImage(imagem, 0, 0, w, h);
     const blob: Blob = await new Promise((res, rej) =>
       canvas.toBlob((b) => (b ? res(b) : rej(new Error("Falha ao converter imagem"))), "image/jpeg", 0.85),
     );
@@ -164,7 +182,14 @@ export default function DemandaChat() {
     if (!user) return;
     setUploading(true);
     try {
-      const { blob, ext, mime, nome } = await normalizarImagem(file);
+      let normalizado: { blob: Blob; ext: string; mime: string; nome: string };
+      try {
+        normalizado = await normalizarImagem(file);
+      } catch (error) {
+        console.warn("[uploadAnexo] fallback para arquivo original:", error);
+        normalizado = arquivoOriginal(file);
+      }
+      const { blob, ext, mime, nome } = normalizado;
       const path = `${user.id}/demandas/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
         .from(ANEXOS_BUCKET)
