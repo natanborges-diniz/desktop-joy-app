@@ -436,7 +436,7 @@ export default function LojaNovaDemanda() {
       return;
     }
     const { blob, ext, mime, nome } = await normalizarAnexo(file);
-    const path = `${user.id}/solicitacoes/${crypto.randomUUID()}-${et.campo}.${ext}`;
+    const path = `${user.id}/${crypto.randomUUID()}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
       .upload(path, blob, { contentType: mime, upsert: false });
