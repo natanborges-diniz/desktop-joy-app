@@ -28,7 +28,7 @@ export type Profile = {
   tipo_usuario?: string | null;
 };
 
-export const SOLICITACAO_ANEXOS_BUCKET = "whatsapp-media";
+export const SOLICITACAO_ANEXOS_BUCKET = "solicitacao-anexos";
 
 export type MensagemInterna = {
   id: string;
