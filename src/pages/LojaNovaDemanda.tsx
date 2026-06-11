@@ -403,21 +403,14 @@ export default function LojaNovaDemanda() {
       toast.error(`Máximo ${MAX_FILES_POR_ETAPA} arquivos por campo`);
       return;
     }
-    let normalizado: { blob: Blob; ext: string; mime: string; nome: string };
-    try {
-      normalizado = await normalizarAnexo(file);
-    } catch (error) {
-      console.warn("[uploadAnexo] fallback para arquivo original:", error);
-      normalizado = arquivoOriginal(file);
-    }
-    const { blob, ext, mime, nome } = normalizado;
+    const { blob, ext, mime, nome } = await normalizarAnexo(file);
     const path = `${user.id}/${crypto.randomUUID()}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
       .upload(path, blob, { contentType: mime, upsert: false });
     if (error) {
       console.error("[uploadAnexo] erro:", error);
-      toast.error(`Falha ao enviar "${file.name}": ${error.message || JSON.stringify(error)}`);
+      toast.error(`Falha ao enviar "${file.name}": ${descreverErroUpload(error)}`);
       return;
     }
     const { data } = supabase.storage.from(SOLICITACAO_ANEXOS_BUCKET).getPublicUrl(path);
