@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { initUpdateManager } from "./lib/update-manager";
 
 // ============ Service Worker registration with safety guards ============
 // SW NÃO deve registrar dentro do iframe do editor Lovable (quebra preview).
@@ -27,21 +26,22 @@ if (isInIframe || isPreviewHost) {
     });
   }
 } else if ("serviceWorker" in navigator) {
-  // Em produção real (desktop-joy-app.lovable.app etc.), registra o SW.
+  // Em produção, força os SWs antigos a buscarem o kill-switch em /sw.js.
   window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js", { type: "classic" })
-      .then((registration) => {
-        initUpdateManager(registration);
-      })
-      .catch((err) => console.error("[SW] register failed:", err));
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((registration) => {
+        const scriptUrl =
+          registration.active?.scriptURL ??
+          registration.waiting?.scriptURL ??
+          registration.installing?.scriptURL ??
+          "";
 
-    // Quando o SW novo assume controle (após SKIP_WAITING), recarrega.
-    let reloaded = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloaded) return;
-      reloaded = true;
-      window.location.reload();
+        if (!scriptUrl.endsWith("/sw.js")) return;
+
+        registration.update().catch((err) => {
+          console.error("[SW] update failed:", err);
+        });
+      });
     });
   });
 }
