@@ -29,8 +29,8 @@ const App = () => (
       position="top-center"
       richColors
       closeButton
-      offset="calc(env(safe-area-inset-top, 0px) + 12px)"
-      mobileOffset="calc(env(safe-area-inset-top, 0px) + 12px)"
+      offset={{ top: "calc(env(safe-area-inset-top, 0px) + 16px)", left: "16px", right: "16px", bottom: "16px" }}
+      mobileOffset={{ top: "calc(env(safe-area-inset-top, 0px) + 16px)", left: "12px", right: "12px", bottom: "12px" }}
     />
     <BrowserRouter>
       <AuthProvider>

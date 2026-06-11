@@ -144,6 +144,16 @@
 }
 
 @layer components {
+  [data-sonner-toaster][data-y-position="top"] {
+    top: calc(env(safe-area-inset-top, 0px) + 16px) !important;
+  }
+
+  [data-sonner-toast] [data-close-button] {
+    top: 10px;
+    left: 10px;
+    transform: none;
+  }
+
   .bubble-out {
     @apply rounded-2xl rounded-br-sm bg-[hsl(var(--bubble-out))] text-[hsl(var(--bubble-out-foreground))];
   }
