@@ -10,6 +10,7 @@ import { useLojaContext } from "@/hooks/useLojaContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
 
 type Demanda = {
   id: string;
@@ -33,26 +34,6 @@ type DemandaMsg = {
   created_at: string;
 };
 
-function arquivoOriginal(file: File): { blob: Blob; ext: string; mime: string; nome: string } {
-  const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
-  return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
-}
-
-async function carregarImagem(file: File): Promise<HTMLImageElement> {
-  return await new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Falha ao ler imagem"));
-    };
-    img.src = url;
-  });
-}
 
 export default function DemandaChat() {
   const { id } = useParams<{ id: string }>();
@@ -153,57 +134,25 @@ export default function DemandaChat() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs.length]);
 
-  async function normalizarImagem(file: File): Promise<{ blob: Blob; ext: string; mime: string; nome: string }> {
-    const ehHeic = /\.(heic|heif)$/i.test(file.name) || /image\/(heic|heif)/i.test(file.type);
-    if (!ehHeic) return arquivoOriginal(file);
-
-    const imagem = typeof createImageBitmap === "function"
-      ? await createImageBitmap(file)
-      : await carregarImagem(file);
-
-    const MAX = 1600;
-    const ratio = Math.min(1, MAX / Math.max(imagem.width, imagem.height));
-    const w = Math.round(imagem.width * ratio);
-    const h = Math.round(imagem.height * ratio);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas indisponível");
-    ctx.drawImage(imagem, 0, 0, w, h);
-    const blob: Blob = await new Promise((res, rej) =>
-      canvas.toBlob((b) => (b ? res(b) : rej(new Error("Falha ao converter imagem"))), "image/jpeg", 0.85),
-    );
-    const baseNome = file.name.replace(/\.[^.]+$/, "");
-    return { blob, ext: "jpg", mime: "image/jpeg", nome: `${baseNome}.jpg` };
-  }
-
   async function uploadAnexo(file: File) {
     if (!user) return;
     setUploading(true);
     try {
-      let normalizado: { blob: Blob; ext: string; mime: string; nome: string };
-      try {
-        normalizado = await normalizarImagem(file);
-      } catch (error) {
-        console.warn("[uploadAnexo] fallback para arquivo original:", error);
-        normalizado = arquivoOriginal(file);
-      }
-      const { blob, ext, mime, nome } = normalizado;
-      const path = `${user.id}/demandas/${Date.now()}.${ext}`;
+      const { blob, ext, mime, nome } = await normalizarAnexo(file);
+      const path = `${user.id}/demandas/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from(ANEXOS_BUCKET)
         .upload(path, blob, { contentType: mime, upsert: false });
       if (error) {
         console.error("[uploadAnexo] erro:", error);
-        toast.error(`Falha ao enviar anexo: ${error.message ?? "erro desconhecido"}`);
+        toast.error(`Falha ao enviar "${file.name}": ${descreverErroUpload(error)}`);
         return;
       }
       const { data } = supabase.storage.from(ANEXOS_BUCKET).getPublicUrl(path);
       setAnexo({ url: data.publicUrl, mime, nome });
-    } catch (e: any) {
+    } catch (e) {
       console.error("[uploadAnexo] exceção:", e);
-      toast.error(`Falha ao processar anexo: ${e?.message ?? "erro desconhecido"}`);
+      toast.error(`Falha ao processar "${file.name}": ${descreverErroUpload(e)}`);
     } finally {
       setUploading(false);
     }

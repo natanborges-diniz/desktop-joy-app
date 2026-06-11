@@ -8,6 +8,7 @@ import {
   type MensagemInterna,
   type Profile,
 } from "@/integrations/supabase/client";
+import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
 import { useAuth } from "@/auth/auth-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
@@ -236,14 +237,14 @@ export default function ConversaDetail() {
   }
 
   async function uploadAnexo(file: File, senderId: string) {
-    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const { blob, ext, mime } = await normalizarAnexo(file);
     const path = `${senderId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage
       .from(ANEXOS_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, blob, { contentType: mime, upsert: false });
     if (error) throw error;
     const { data } = supabase.storage.from(ANEXOS_BUCKET).getPublicUrl(path);
-    return { url: data.publicUrl, tipo: file.type };
+    return { url: data.publicUrl, tipo: mime };
   }
 
   async function send(e: FormEvent) {
@@ -290,12 +291,13 @@ export default function ConversaDetail() {
         anexo_url = up.url;
         anexo_tipo = up.tipo;
       } catch (err) {
+        console.error("[uploadAnexo] erro:", err);
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setText(conteudo);
         setPendingFile(fileToSend);
         setPendingPreview(previewUrl);
         setSending(false);
-        toast.error("Falha ao enviar o anexo.");
+        toast.error(`Falha ao enviar "${fileToSend.name}": ${descreverErroUpload(err)}`);
         return;
       }
     }

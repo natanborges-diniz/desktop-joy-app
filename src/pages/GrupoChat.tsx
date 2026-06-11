@@ -7,6 +7,7 @@ import {
   ANEXOS_BUCKET,
   type MensagemInterna,
 } from "@/integrations/supabase/client";
+import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
 import { useAuth } from "@/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -405,14 +406,14 @@ export default function GrupoChat() {
   }
 
   async function uploadAnexo(file: File, senderId: string) {
-    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const { blob, ext, mime } = await normalizarAnexo(file);
     const path = `${senderId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage
       .from(ANEXOS_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, blob, { contentType: mime, upsert: false });
     if (error) throw error;
     const { data } = supabase.storage.from(ANEXOS_BUCKET).getPublicUrl(path);
-    return { url: data.publicUrl, tipo: file.type };
+    return { url: data.publicUrl, tipo: mime };
   }
 
   async function send(e: FormEvent) {
@@ -440,9 +441,9 @@ export default function GrupoChat() {
         anexo_url = up.url;
         anexo_tipo = up.tipo;
       } catch (err) {
-        console.error(err);
+        console.error("[uploadAnexo] erro:", err);
         setSending(false);
-        toast.error("Falha ao enviar o anexo.");
+        toast.error(`Falha ao enviar "${fileToSend.name}": ${descreverErroUpload(err)}`);
         return;
       }
     }
