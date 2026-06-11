@@ -62,27 +62,46 @@ type Fluxo = {
 
 type Anexo = { url: string; mime_type: string; nome: string };
 
+function arquivoOriginal(file: File): { blob: Blob; ext: string; mime: string; nome: string } {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+  return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
+}
+
+async function carregarImagem(file: File): Promise<HTMLImageElement> {
+  return await new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Falha ao ler imagem"));
+    };
+    img.src = url;
+  });
+}
+
 async function normalizarAnexo(file: File): Promise<{ blob: Blob; ext: string; mime: string; nome: string }> {
-  const ehImagem =
-    file.type.startsWith("image/") ||
-    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name);
+  const nome = file.name || "arquivo";
+  const ehHeic = /\.(heic|heif)$/i.test(nome) || /image\/(heic|heif)/i.test(file.type);
+  if (!ehHeic) return arquivoOriginal(file);
 
-  if (!ehImagem) {
-    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
-    return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
-  }
+  const imagem = typeof createImageBitmap === "function"
+    ? await createImageBitmap(file)
+    : await carregarImagem(file);
 
-  const bitmap = await createImageBitmap(file);
   const MAX = 1600;
-  const ratio = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * ratio);
-  const h = Math.round(bitmap.height * ratio);
+  const ratio = Math.min(1, MAX / Math.max(imagem.width, imagem.height));
+  const w = Math.round(imagem.width * ratio);
+  const h = Math.round(imagem.height * ratio);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas indisponível");
-  ctx.drawImage(bitmap, 0, 0, w, h);
+  ctx.drawImage(imagem, 0, 0, w, h);
 
   const blob: Blob = await new Promise((resolve, reject) =>
     canvas.toBlob(
@@ -92,7 +111,7 @@ async function normalizarAnexo(file: File): Promise<{ blob: Blob; ext: string; m
     ),
   );
 
-  const baseNome = file.name.replace(/\.[^.]+$/, "");
+  const baseNome = nome.replace(/\.[^.]+$/, "");
   return { blob, ext: "jpg", mime: "image/jpeg", nome: `${baseNome}.jpg` };
 }
 
@@ -435,7 +454,14 @@ export default function LojaNovaDemanda() {
       toast.error(`Máximo ${MAX_FILES_POR_ETAPA} arquivos por campo`);
       return;
     }
-    const { blob, ext, mime, nome } = await normalizarAnexo(file);
+    let normalizado: { blob: Blob; ext: string; mime: string; nome: string };
+    try {
+      normalizado = await normalizarAnexo(file);
+    } catch (error) {
+      console.warn("[uploadAnexo] fallback para arquivo original:", error);
+      normalizado = arquivoOriginal(file);
+    }
+    const { blob, ext, mime, nome } = normalizado;
     const path = `${user.id}/${crypto.randomUUID()}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
