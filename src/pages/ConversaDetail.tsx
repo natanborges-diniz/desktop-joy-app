@@ -291,12 +291,13 @@ export default function ConversaDetail() {
         anexo_url = up.url;
         anexo_tipo = up.tipo;
       } catch (err) {
+        console.error("[uploadAnexo] erro:", err);
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setText(conteudo);
         setPendingFile(fileToSend);
         setPendingPreview(previewUrl);
         setSending(false);
-        toast.error("Falha ao enviar o anexo.");
+        toast.error(`Falha ao enviar "${fileToSend.name}": ${descreverErroUpload(err)}`);
         return;
       }
     }
