@@ -402,12 +402,13 @@ export default function LojaNovaDemanda() {
       return;
     }
     const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
-    const path = `solicitacoes/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${et.campo}.${ext}`;
+    const path = `${user.id}/solicitacoes/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
       .upload(path, file, { contentType: file.type, upsert: false });
     if (error) {
-      toast.error(`Falha ao enviar "${file.name}"`);
+      console.error("[uploadAnexo] erro:", error);
+      toast.error(`Falha ao enviar "${file.name}": ${error.message ?? "erro desconhecido"}`);
       return;
     }
     const { data } = supabase.storage.from(SOLICITACAO_ANEXOS_BUCKET).getPublicUrl(path);
