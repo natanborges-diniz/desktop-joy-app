@@ -62,6 +62,40 @@ type Fluxo = {
 
 type Anexo = { url: string; mime_type: string; nome: string };
 
+async function normalizarAnexo(file: File): Promise<{ blob: Blob; ext: string; mime: string; nome: string }> {
+  const ehImagem =
+    file.type.startsWith("image/") ||
+    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name);
+
+  if (!ehImagem) {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    return { blob: file, ext, mime: file.type || "application/octet-stream", nome: file.name };
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const MAX = 1600;
+  const ratio = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * ratio);
+  const h = Math.round(bitmap.height * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas indisponível");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+
+  const blob: Blob = await new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Falha ao converter imagem"))),
+      "image/jpeg",
+      0.85,
+    ),
+  );
+
+  const baseNome = file.name.replace(/\.[^.]+$/, "");
+  return { blob, ext: "jpg", mime: "image/jpeg", nome: `${baseNome}.jpg` };
+}
+
 type CpfAprovado = {
   id: string;
   protocolo: string | null;
@@ -401,11 +435,11 @@ export default function LojaNovaDemanda() {
       toast.error(`Máximo ${MAX_FILES_POR_ETAPA} arquivos por campo`);
       return;
     }
-    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const { blob, ext, mime, nome } = await normalizarAnexo(file);
     const path = `${user.id}/solicitacoes/${crypto.randomUUID()}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, blob, { contentType: mime, upsert: false });
     if (error) {
       console.error("[uploadAnexo] erro:", error);
       toast.error(`Falha ao enviar "${file.name}": ${error.message || JSON.stringify(error)}`);
@@ -416,7 +450,7 @@ export default function LojaNovaDemanda() {
       ...a,
       [et.campo]: [
         ...(a[et.campo] ?? []),
-        { url: data.publicUrl, mime_type: file.type, nome: file.name },
+        { url: data.publicUrl, mime_type: mime, nome },
       ],
     }));
     setErros((e) => ({ ...e, [et.campo]: null }));
