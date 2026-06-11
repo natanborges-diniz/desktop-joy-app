@@ -401,14 +401,14 @@ export default function LojaNovaDemanda() {
       toast.error(`Máximo ${MAX_FILES_POR_ETAPA} arquivos por campo`);
       return;
     }
-    const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
-    const path = `${user.id}/solicitacoes/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${et.campo}.${ext}`;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const path = `${user.id}/solicitacoes/${crypto.randomUUID()}-${et.campo}.${ext}`;
     const { error } = await supabase.storage
       .from(SOLICITACAO_ANEXOS_BUCKET)
       .upload(path, file, { contentType: file.type, upsert: false });
     if (error) {
       console.error("[uploadAnexo] erro:", error);
-      toast.error(`Falha ao enviar "${file.name}": ${error.message ?? "erro desconhecido"}`);
+      toast.error(`Falha ao enviar "${file.name}": ${error.message || JSON.stringify(error)}`);
       return;
     }
     const { data } = supabase.storage.from(SOLICITACAO_ANEXOS_BUCKET).getPublicUrl(path);
