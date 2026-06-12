@@ -26,10 +26,23 @@ if (isInIframe || isPreviewHost) {
     });
   }
 } else if ("serviceWorker" in navigator) {
+  // Quando o novo SW assume o controle (após SKIP_WAITING), recarrega a página
+  // para que o usuário pegue o código novo imediatamente.
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
-      .then((registration) => registration.update().catch(() => undefined))
+      .then((registration) => {
+        registration.update().catch(() => undefined);
+        // Checa por updates a cada 60s — importante no iOS standalone.
+        setInterval(() => registration.update().catch(() => undefined), 60_000);
+      })
       .catch((err) => {
         console.error("[SW] register failed:", err);
       });
