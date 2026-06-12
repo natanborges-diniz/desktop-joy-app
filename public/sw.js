@@ -20,10 +20,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       try {
+        // Limpa TODOS os caches pra garantir bundle fresco nesta versão.
         const cacheNames = await caches.keys();
-        const targets = cacheNames.filter(isWorkboxCache);
-        await Promise.allSettled(targets.map((name) => caches.delete(name)));
+        await Promise.allSettled(cacheNames.map((name) => caches.delete(name)));
         await self.clients.claim();
+        console.log("[SW] activated", SW_VERSION);
       } catch {
         // ignore
       }
