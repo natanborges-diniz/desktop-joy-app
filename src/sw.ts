@@ -1,6 +1,10 @@
 /// <reference lib="webworker" />
 
-declare const self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & {
+  __WB_MANIFEST: Array<unknown>;
+};
+
+void self.__WB_MANIFEST;
 
 function isWorkboxCache(name: string) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
