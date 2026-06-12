@@ -1,4 +1,5 @@
-// Kill-switch service worker: limpa caches antigos do Workbox e se desregistra.
+// Worker mínimo: limpa caches antigos de app-shell, ativa rápido e mantém suporte
+// a notificações/push no app publicado sem registrar no preview.
 function isWorkboxCache(name) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
 }
@@ -25,8 +26,31 @@ self.addEventListener("activate", (event) => {
           windowClients.map((client) => client.navigate(client.url)),
         );
       } finally {
-        await self.registration.unregister();
       }
+    })(),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification?.data?.url || "/";
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of allClients) {
+        if ("focus" in client) {
+          await client.navigate(url);
+          await client.focus();
+          return;
+        }
+      }
+
+      await self.clients.openWindow(url);
     })(),
   );
 });
