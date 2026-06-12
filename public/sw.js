@@ -1,9 +1,6 @@
 // Service worker mínimo para o InFoco Message.
-// - NÃO usa skipWaiting automático: assim o app consegue detectar que há
-//   uma nova versão em "waiting" e mostrar o banner "Nova versão disponível".
-// - Só pula a espera quando o cliente pede via postMessage({type:"SKIP_WAITING"}).
-// - Limpa caches antigos do Workbox no activate.
-// - Mantém suporte a notificationclick para push notifications.
+// SW_VERSION: bump esta string pra forçar reinstalação + limpeza total de cache.
+const SW_VERSION = "2026-06-12-fix-solicitacao-anexos";
 
 function isWorkboxCache(name) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
@@ -23,10 +20,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       try {
+        // Limpa TODOS os caches pra garantir bundle fresco nesta versão.
         const cacheNames = await caches.keys();
-        const targets = cacheNames.filter(isWorkboxCache);
-        await Promise.allSettled(targets.map((name) => caches.delete(name)));
+        await Promise.allSettled(cacheNames.map((name) => caches.delete(name)));
         await self.clients.claim();
+        console.log("[SW] activated", SW_VERSION);
       } catch {
         // ignore
       }
