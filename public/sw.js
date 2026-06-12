@@ -1,12 +1,5 @@
-/// <reference lib="webworker" />
-
-declare const self: ServiceWorkerGlobalScope & {
-  __WB_MANIFEST: Array<unknown>;
-};
-
-void self.__WB_MANIFEST;
-
-function isWorkboxCache(name: string) {
+// Kill-switch service worker: limpa caches antigos do Workbox e se desregistra.
+function isWorkboxCache(name) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
 }
 
@@ -29,7 +22,7 @@ self.addEventListener("activate", (event) => {
         });
 
         await Promise.allSettled(
-          windowClients.map((client) => (client as WindowClient).navigate(client.url)),
+          windowClients.map((client) => client.navigate(client.url)),
         );
       } finally {
         await self.registration.unregister();
