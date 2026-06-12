@@ -1,11 +1,22 @@
-// Worker mínimo: limpa caches antigos de app-shell, ativa rápido e mantém suporte
-// a notificações/push no app publicado sem registrar no preview.
+// Service worker mínimo para o InFoco Message.
+// - NÃO usa skipWaiting automático: assim o app consegue detectar que há
+//   uma nova versão em "waiting" e mostrar o banner "Nova versão disponível".
+// - Só pula a espera quando o cliente pede via postMessage({type:"SKIP_WAITING"}).
+// - Limpa caches antigos do Workbox no activate.
+// - Mantém suporte a notificationclick para push notifications.
+
 function isWorkboxCache(name) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
 }
 
 self.addEventListener("install", () => {
-  self.skipWaiting();
+  // Não chamamos skipWaiting aqui — esperamos o usuário clicar em "Recarregar".
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -16,16 +27,8 @@ self.addEventListener("activate", (event) => {
         const targets = cacheNames.filter(isWorkboxCache);
         await Promise.allSettled(targets.map((name) => caches.delete(name)));
         await self.clients.claim();
-
-        const windowClients = await self.clients.matchAll({
-          type: "window",
-          includeUncontrolled: true,
-        });
-
-        await Promise.allSettled(
-          windowClients.map((client) => client.navigate(client.url)),
-        );
-      } finally {
+      } catch {
+        // ignore
       }
     })(),
   );
