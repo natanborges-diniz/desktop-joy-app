@@ -35,18 +35,16 @@ if (isInIframe || isPreviewHost) {
     window.location.reload();
   });
 
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((registration) => {
-        registration.update().catch(() => undefined);
-        // Checa por updates a cada 60s — importante no iOS standalone.
-        setInterval(() => registration.update().catch(() => undefined), 60_000);
-      })
-      .catch((err) => {
-        console.error("[SW] register failed:", err);
-      });
-  });
+  navigator.serviceWorker
+    .register("/sw.js", { scope: "/" })
+    .then((registration) => {
+      registration.update().catch(() => undefined);
+      // Checa por updates a cada 60s — importante no iOS standalone.
+      setInterval(() => registration.update().catch(() => undefined), 60_000);
+    })
+    .catch((err) => {
+      console.error("[SW] register failed:", err);
+    });
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
