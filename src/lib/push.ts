@@ -39,6 +39,22 @@ export function getPermission(): NotificationPermission {
   return Notification.permission;
 }
 
+function canRegisterAppServiceWorker(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  const isPreviewHost =
+    host.includes("id-preview--") ||
+    host.includes("lovableproject.com") ||
+    host === "localhost" ||
+    host === "127.0.0.1";
+
+  try {
+    return window.self === window.top && !isPreviewHost;
+  } catch {
+    return false;
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -50,6 +66,18 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null;
+  try {
+    const existing = await navigator.serviceWorker.getRegistration();
+    if (existing) return existing;
+
+    if (canRegisterAppServiceWorker()) {
+      const registered = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      if (registered) return registered;
+    }
+  } catch {
+    // ignora e tenta as opções abaixo
+  }
+
   // Aguarda o SW ficar pronto (importante no primeiro load do PWA no iOS).
   try {
     const ready = await Promise.race([

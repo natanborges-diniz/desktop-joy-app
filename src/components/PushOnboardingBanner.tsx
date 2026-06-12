@@ -32,8 +32,14 @@ export function PushOnboardingBanner() {
       toast.success("Notificações ativadas.");
     } else if (res.reason === "denied") {
       toast.error("Permissão negada. Ative nas configurações do navegador.");
+    } else if (res.reason === "no-sw") {
+      toast.error("O app ainda não conseguiu ativar o service worker. Reabra o app e tente novamente.");
+    } else if (res.reason === "no-vapid-key") {
+      toast.error("A chave de notificações não está configurada no app.");
+    } else if (res.reason === "unsupported") {
+      toast.error("Este navegador não suporta notificações push.");
     } else {
-      toast.error("Não foi possível ativar agora. Tente novamente.");
+      toast.error(`Não foi possível ativar agora (${res.reason ?? "erro desconhecido"}).`);
     }
   }
 
