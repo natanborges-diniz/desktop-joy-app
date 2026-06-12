@@ -1,7 +1,9 @@
+// Cliente legado: este app ainda usa o backend externo onde estão as tabelas e arquivos.
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = "https://kvggebtnqmxydtwaumqz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z2dlYnRucW14eWR0d2F1bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQ5OTAsImV4cCI6MjA4OTUyMDk5MH0.t9OTkyVB7daON1TQ24npjcc4cMDzFMMUPowXu1qcqR8";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -9,7 +11,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storageKey: "infoco-message-auth",
+    storageKey: "atrium-messenger-auth",
     flowType: "pkce",
   },
 });
