@@ -26,23 +26,13 @@ if (isInIframe || isPreviewHost) {
     });
   }
 } else if ("serviceWorker" in navigator) {
-  // Em produção, força os SWs antigos a buscarem o kill-switch em /sw.js.
   window.addEventListener("load", () => {
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-      regs.forEach((registration) => {
-        const scriptUrl =
-          registration.active?.scriptURL ??
-          registration.waiting?.scriptURL ??
-          registration.installing?.scriptURL ??
-          "";
-
-        if (!scriptUrl.endsWith("/sw.js")) return;
-
-        registration.update().catch((err) => {
-          console.error("[SW] update failed:", err);
-        });
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => registration.update().catch(() => undefined))
+      .catch((err) => {
+        console.error("[SW] register failed:", err);
       });
-    });
   });
 }
 

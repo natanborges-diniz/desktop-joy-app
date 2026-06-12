@@ -1,5 +1,4 @@
-// Atrium Messenger conecta-se ao mesmo backend Supabase do projeto atrium-link.
-// Usa apenas a anon key (publishable) — todas as regras de acesso são garantidas por RLS.
+// Cliente legado: este app ainda usa o backend externo onde estão as tabelas e arquivos.
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://kvggebtnqmxydtwaumqz.supabase.co";
