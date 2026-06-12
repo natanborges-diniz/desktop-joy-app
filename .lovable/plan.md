@@ -1,27 +1,26 @@
+# Plano
+
 ## Objetivo
-Restaurar o push notifications adicionando a chave VAPID pública ao `.env` deste projeto.
+Confirmar se o erro no site publicado vem de uma publicação desatualizada, cache antigo do navegador, ou de o frontend publicado ainda apontar para um backend externo diferente do backend que você ajustou.
 
-## Mudança
-Adicionar uma única linha ao `.env`:
+## O que vou verificar
+1. Identificar qual backend o frontend atual usa para upload.
+2. Comparar o comportamento do preview e do site publicado.
+3. Conferir se o site publicado está servindo um bundle antigo.
+4. Se necessário, ajustar o frontend para apontar para o backend correto ou orientar a republicação certa.
 
-```
-VITE_VAPID_PUBLIC_KEY=BGi2gNRP8_4mYwoFYbrLgRWsnxq7QM7Klhywz-FmPQYwP86sVzoqYoUGozT-8qjFrkPVAA8rfvmuVo020HyglYI
-```
+## Resultado esperado
+Ter uma resposta objetiva para uma destas hipóteses:
+- o site publicado está com versão antiga do frontend;
+- o frontend está apontando para outro backend;
+- o problema é cache do navegador/CDN;
+- o backend correto não é o mesmo que recebeu a migration.
 
-Essa é uma chave pública — pode ficar no `.env` versionado sem risco. A privada (`VAPID_PRIVATE_KEY`) continua só no backend antigo (`kvggebtnqmxydtwaumqz`), que é quem assina e envia os pushes.
+## Detalhes técnicos
+- O código atual mostra que `src/integrations/supabase/client.ts` usa um backend externo.
+- O upload em `ConversaDetail.tsx` envia para o bucket `mensagens-anexos` usando esse cliente.
+- Na implementação, vou inspecionar as URLs efetivas do preview/publicado e conferir se a publicação disponível corresponde ao código que está no projeto agora.
+- Se a causa for publicação desatualizada, a correção será no frontend/publicação, não na infra do bucket.
 
-## Por que isso resolve
-- `src/lib/push.ts` lê `import.meta.env.VITE_VAPID_PUBLIC_KEY` para chamar `pushManager.subscribe({ applicationServerKey })`.
-- Sem ela, o navegador não consegue criar a `PushSubscription` → erro "Não foi possível ativar o push agora".
-- Com ela presente, o fluxo volta a ser: pedir permissão → criar subscription → gravar em `push_subscriptions` no backend antigo (onde a tabela e a chave privada existem) → `send-push` consegue entregar.
-
-## Validação
-1. Após restart do dev server (Vite recarrega `.env`), recarregar a app.
-2. Clicar na barra amarela "Ativar push".
-3. Esperado: prompt de permissão do navegador → toast de sucesso → linha nova em `push_subscriptions` no backend antigo.
-4. Se falhar, abrir DevTools → Console e Network para ver se o erro vem de `subscribe()` (chave) ou do insert (RLS/sessão).
-
-## Fora de escopo
-- Não mexer em `src/integrations/supabase/client.ts` (continua apontando pro backend antigo, que é onde tudo funciona).
-- Não recriar tabelas nem edge functions neste Cloud novo.
-- Não rotacionar VAPID — usaremos as chaves existentes.
+## Entrega
+Ao final, te digo exatamente se “é a publicação” e qual ação resolve: republicar, trocar endpoint, limpar cache, ou corrigir o backend alvo.
