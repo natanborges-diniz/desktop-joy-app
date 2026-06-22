@@ -1,11 +1,12 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, ShieldCheck, User, Wallet } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, PackageCheck, ShieldCheck, User, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
+import { useRecebimentoOSPendentes } from "@/hooks/useRecebimentoOSPendentes";
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
 import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
@@ -17,7 +18,7 @@ type NavItem = {
   label: string;
   icon: typeof MessageSquare;
   exact: boolean;
-  badge: "messages" | null;
+  badge: "messages" | "recebimento" | null;
   modulo: Modulo;
 };
 
@@ -28,6 +29,7 @@ const baseItems: NavItem[] = [
   { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
   { to: "/nova-demanda", label: "Abrir", icon: FilePlus2, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/minhas-demandas", label: "Minhas", icon: ClipboardList, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/recebimento-os", label: "Recebimento", icon: PackageCheck, exact: false, badge: "recebimento", modulo: "menu_loja" },
   { to: "/cashback", label: "Cashback", icon: Wallet, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null, modulo: null },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
@@ -54,6 +56,7 @@ function RailBadge({ count }: { count: number }) {
 export default function AppShell() {
   const location = useLocation();
   const unread = useUnreadCount();
+  const { count: osPendentes } = useRecebimentoOSPendentes();
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
   useNotificacoesRealtime();
