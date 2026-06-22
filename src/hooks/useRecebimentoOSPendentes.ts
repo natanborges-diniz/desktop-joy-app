@@ -63,7 +63,7 @@ export function useRecebimentoOSPendentes() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`os-recebimento-${user.id}`)
+      .channel(`os-recebimento-${user.id}-${instanceId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "os_recebimento_loja" },
