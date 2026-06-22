@@ -6,7 +6,7 @@ import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
-import { useRecebimentoOSPendentes } from "@/hooks/useRecebimentoOSPendentes";
+
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
 import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
