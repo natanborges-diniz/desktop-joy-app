@@ -112,6 +112,7 @@ export default function AppShell() {
             >
               <Icon className="h-5 w-5" />
               {badge === "messages" && <RailBadge count={unread} />}
+              {badge === "recebimento" && <RailBadge count={osPendentes} />}
             </NavLink>
           ))}
         </nav>
@@ -164,6 +165,7 @@ export default function AppShell() {
                   <span className="relative">
                     <Icon className="h-5 w-5" />
                     {badge === "messages" && <MobileBadge count={unread} />}
+                    {badge === "recebimento" && <MobileBadge count={osPendentes} />}
                   </span>
                   {label}
                 </NavLink>
