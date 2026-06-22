@@ -26,6 +26,7 @@ async function fetchLojas(userId: string): Promise<string[]> {
 }
 
 export function useRecebimentoOSPendentes() {
+  const { user } = useAuth();
   const instanceId = useId();
   const [rows, setRows] = useState<OSRecebimentoRow[]>([]);
   const [loading, setLoading] = useState(true);
