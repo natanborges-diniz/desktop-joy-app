@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 
@@ -26,7 +26,7 @@ async function fetchLojas(userId: string): Promise<string[]> {
 }
 
 export function useRecebimentoOSPendentes() {
-  const { user } = useAuth();
+  const instanceId = useId();
   const [rows, setRows] = useState<OSRecebimentoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [lojas, setLojas] = useState<string[]>([]);
