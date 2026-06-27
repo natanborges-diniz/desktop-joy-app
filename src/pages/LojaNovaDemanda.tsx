@@ -310,7 +310,7 @@ export default function LojaNovaDemanda() {
       .select("id,protocolo,created_at,metadata")
       .eq("tipo", "consulta_cpf")
       .eq("metadata->>resultado_consulta", "aprovado")
-      .eq("metadata->>loja_nome", loja)
+      .or(`metadata->>loja_nome.eq.${loja},metadata->>alias_loja.eq.${loja}`)
       .is("metadata->>boleto_solicitacao_id", null)
       .gte("created_at", desdeIso)
       .order("created_at", { ascending: false })
