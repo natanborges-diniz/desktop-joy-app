@@ -107,6 +107,8 @@ type CpfAprovado = {
   cliente: string | null;
   valor: number | string | null;
   created_at: string;
+  boleto_solicitacao_id?: string | null;
+  boleto_solicitacao_data?: string | null;
 };
 
 type Resultado = {
