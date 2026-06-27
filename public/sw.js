@@ -1,13 +1,15 @@
 // Service worker mínimo para o InFoco Message.
 // SW_VERSION: bump esta string pra forçar reinstalação + limpeza total de cache.
-const SW_VERSION = "2026-06-12-fix-solicitacao-anexos";
+const SW_VERSION = "2026-06-27-auto-update";
 
 function isWorkboxCache(name) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
 }
 
 self.addEventListener("install", () => {
-  // Não chamamos skipWaiting aqui — esperamos o usuário clicar em "Recarregar".
+  // Atualização automática: assume controle assim que instalar,
+  // sem esperar o usuário clicar em "Recarregar".
+  self.skipWaiting();
 });
 
 self.addEventListener("message", (event) => {
