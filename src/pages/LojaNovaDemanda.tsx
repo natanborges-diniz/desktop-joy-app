@@ -997,7 +997,214 @@ export default function LojaNovaDemanda() {
                 </>
               )}
 
-              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) &&
+              {/* === Wizard de Boleto (3 passos) === */}
+              {fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada && (() => {
+                const sel = cpfsAprovados?.find((x) => x.id === consultaCpfSelecionada);
+                const valorTotalNum = parseValorBR(boletoValorTotal);
+                const valorParcela =
+                  Number.isFinite(valorTotalNum) && valorTotalNum > 0 && boletoQtdParcelas > 0
+                    ? Math.round((valorTotalNum / boletoQtdParcelas) * 100) / 100
+                    : 0;
+                const projecao = projetarParcelasLocal(valorTotalNum, boletoQtdParcelas, boletoDiaVenc);
+                return (
+                  <div className="space-y-4">
+                    {/* Stepper */}
+                    <div className="flex items-center gap-2 text-xs">
+                      {[1, 2, 3].map((n) => (
+                        <div
+                          key={n}
+                          className={`flex h-7 flex-1 items-center justify-center rounded-full border ${
+                            boletoStep === n
+                              ? "border-primary bg-primary/10 font-semibold text-primary"
+                              : boletoStep > n
+                                ? "border-primary/40 bg-primary/5 text-primary"
+                                : "border-border bg-muted/30 text-muted-foreground"
+                          }`}
+                        >
+                          {n}. {n === 1 ? "Cliente e valor" : n === 2 ? "Condições" : "Conferir"}
+                        </div>
+                      ))}
+                    </div>
+
+                    {boletoStep === 1 && (
+                      <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-soft">
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Cliente
+                          </Label>
+                          <p className="text-sm font-medium text-foreground">{sel?.cliente ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">CPF {mascararCpf(sel?.cpf ?? "")}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="valor_total">Valor total (R$)</Label>
+                          <Input
+                            id="valor_total"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={boletoValorTotal}
+                            onChange={(e) => setBoletoValorTotal(e.target.value)}
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Valor aprovado: {formatarBRL(sel?.valor)} — pode ajustar se necessário.
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="obs">Observação (opcional)</Label>
+                          <Textarea
+                            id="obs"
+                            rows={3}
+                            value={boletoObservacao}
+                            onChange={(e) => setBoletoObservacao(e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => {
+                            const v = parseValorBR(boletoValorTotal);
+                            if (!Number.isFinite(v) || v <= 0) {
+                              toast.error("Informe um valor total válido");
+                              return;
+                            }
+                            setBoletoStep(2);
+                          }}
+                        >
+                          Avançar <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {boletoStep === 2 && (
+                      <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-soft">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="qtd_parcelas">Quantidade de parcelas</Label>
+                          <select
+                            id="qtd_parcelas"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+                            value={boletoQtdParcelas}
+                            onChange={(e) => setBoletoQtdParcelas(Number(e.target.value))}
+                          >
+                            {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                {n}x
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-muted-foreground">
+                            Valor por parcela:{" "}
+                            <span className="font-semibold text-foreground">
+                              {formatarBRL(valorParcela)}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="dia_venc">Dia de vencimento (1 a 28)</Label>
+                          <select
+                            id="dia_venc"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+                            value={boletoDiaVenc}
+                            onChange={(e) => setBoletoDiaVenc(Number(e.target.value))}
+                          >
+                            {Array.from({ length: 28 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                Dia {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground">
+                              Enviar boletos impressos?
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {boletoImpresso
+                                ? "A loja imprime e entrega ao cliente."
+                                : "Apenas envio digital pelo WhatsApp."}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={boletoImpresso}
+                            onCheckedChange={(v) => setBoletoImpresso(!!v)}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setBoletoStep(1)}
+                          >
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                          </Button>
+                          <Button className="flex-1" onClick={() => setBoletoStep(3)}>
+                            Pré-visualizar <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {boletoStep === 3 && (
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
+                          Confira a projeção das parcelas antes de enviar ao Financeiro.
+                        </div>
+                        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+                          <div className="grid grid-cols-3 gap-2 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>Parcela</span>
+                            <span>Vencimento</span>
+                            <span className="text-right">Valor</span>
+                          </div>
+                          {projecao.map((p) => (
+                            <div
+                              key={p.numero}
+                              className="grid grid-cols-3 gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                            >
+                              <span className="font-mono">
+                                {p.numero}/{boletoQtdParcelas}
+                              </span>
+                              <span>{formatarDataVenc(p.vencimento)}</span>
+                              <span className="text-right font-medium">{formatarBRL(p.valor)}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-2 text-sm">
+                            <span className="text-muted-foreground">Total</span>
+                            <span className="font-semibold text-foreground">
+                              {formatarBRL(valorTotalNum)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                          Modo: <strong className="text-foreground">{boletoImpresso ? "Impresso" : "Digital"}</strong>
+                          {boletoObservacao ? <> · Obs.: {boletoObservacao}</> : null}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => setBoletoStep(2)}
+                            disabled={enviando}
+                          >
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                          </Button>
+                          <Button
+                            className="w-full flex-1"
+                            onClick={enviarBoleto}
+                            disabled={enviando}
+                          >
+                            {enviando ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="mr-2 h-4 w-4" />
+                            )}
+                            Confirmar envio ao Financeiro
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {fluxoAtivo.chave !== "gerar_boleto" &&
                 fluxoAtivo.etapas.map((et) => {
                   const erro = erros[et.campo];
                   const label = et.label ?? et.mensagem ?? et.campo;
