@@ -384,6 +384,8 @@ export default function LojaNovaDemanda() {
           cliente: m.cliente ?? m.nome_cliente ?? null,
           valor: m.valor_aprovado ?? m.valor ?? null,
           created_at: r.created_at,
+          boleto_solicitacao_id: m.boleto_solicitacao_id ?? null,
+          boleto_solicitacao_data: m.boleto_solicitacao_data ?? null,
         };
       }),
     );
