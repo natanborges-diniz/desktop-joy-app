@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
   Check,
@@ -107,6 +109,8 @@ type CpfAprovado = {
   cliente: string | null;
   valor: number | string | null;
   created_at: string;
+  boleto_solicitacao_id?: string | null;
+  boleto_solicitacao_data?: string | null;
 };
 
 type Resultado = {
@@ -382,6 +386,8 @@ export default function LojaNovaDemanda() {
           cliente: m.cliente ?? m.nome_cliente ?? null,
           valor: m.valor_aprovado ?? m.valor ?? null,
           created_at: r.created_at,
+          boleto_solicitacao_id: m.boleto_solicitacao_id ?? null,
+          boleto_solicitacao_data: m.boleto_solicitacao_data ?? null,
         };
       }),
     );
@@ -411,6 +417,17 @@ export default function LojaNovaDemanda() {
 
 
   function escolherCpfAprovado(c: CpfAprovado) {
+    if (c.boleto_solicitacao_id) {
+      const quando = c.boleto_solicitacao_data
+        ? format(new Date(c.boleto_solicitacao_data), "dd/MM", { locale: ptBR })
+        : null;
+      toast.error(
+        quando
+          ? `Esta consulta já originou o boleto em ${quando}. Abra nova consulta de CPF.`
+          : "Esta consulta já originou um boleto. Abra nova consulta de CPF.",
+      );
+      return;
+    }
     setConsultaCpfSelecionada(c.id);
     setDados((d) => ({
       ...d,

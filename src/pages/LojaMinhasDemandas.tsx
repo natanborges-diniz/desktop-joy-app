@@ -1,5 +1,14 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, FileText, ImageIcon, Loader2, MessageSquarePlus, Send } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  FileText,
+  History,
+  ImageIcon,
+  Loader2,
+  MessageSquarePlus,
+  RotateCcw,
+  Send,
+} from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +19,29 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+type SolicitacaoMeta = {
+  boleto_status?: string | null;
+  boleto_revisao?: { ciclo?: number } | null;
+  boleto_anexos_historico?: Array<{
+    ciclo?: number;
+    enviado_em?: string;
+    anexos?: Array<{ url: string; nome?: string; mime?: string }>;
+    motivo?: string;
+  }> | null;
+  [k: string]: unknown;
+};
 
 type Solicitacao = {
   id: string;
@@ -19,6 +50,7 @@ type Solicitacao = {
   status: string | null;
   created_at: string;
   pipeline_coluna_id: string | null;
+  metadata: SolicitacaoMeta | null;
   pipeline_colunas?:
     | { nome: string | null; cor: string | null }
     | { nome: string | null; cor: string | null }[]
@@ -39,6 +71,30 @@ type Comentario = {
   metadata?: Record<string, unknown> | null;
 };
 
+const MAX_CICLOS_FALLBACK = 3;
+
+async function carregarMaxCiclos(): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from("app_config")
+      .select("valor")
+      .eq("chave", "boleto_max_ciclos_revisao")
+      .maybeSingle();
+    const v = (data as { valor?: unknown } | null)?.valor;
+    const n =
+      typeof v === "number"
+        ? v
+        : typeof v === "string"
+          ? parseInt(v, 10)
+          : typeof v === "object" && v && "value" in (v as any)
+            ? Number((v as any).value)
+            : NaN;
+    return Number.isFinite(n) && n > 0 ? n : MAX_CICLOS_FALLBACK;
+  } catch {
+    return MAX_CICLOS_FALLBACK;
+  }
+}
+
 export default function LojaMinhasDemandas() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -47,6 +103,7 @@ export default function LojaMinhasDemandas() {
   const [items, setItems] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [aberta, setAberta] = useState<Solicitacao | null>(null);
+  const [maxCiclos, setMaxCiclos] = useState<number>(MAX_CICLOS_FALLBACK);
 
   async function load() {
     if (!lojaNome) {
@@ -58,7 +115,7 @@ export default function LojaMinhasDemandas() {
     const { data } = await supabase
       .from("solicitacoes")
       .select(
-        "id, protocolo, assunto, status, created_at, pipeline_coluna_id, pipeline_colunas(nome,cor)",
+        "id, protocolo, assunto, status, created_at, pipeline_coluna_id, metadata, pipeline_colunas(nome,cor)",
       )
       .eq("metadata->>alias_loja", lojaNome)
       .order("created_at", { ascending: false })
@@ -70,6 +127,17 @@ export default function LojaMinhasDemandas() {
   useEffect(() => {
     void load();
   }, [lojaNome]);
+
+  useEffect(() => {
+    void carregarMaxCiclos().then(setMaxCiclos);
+  }, []);
+
+  // mantém a SOL aberta sincronizada com a lista (metadata atualiza após revisão)
+  useEffect(() => {
+    if (!aberta) return;
+    const atual = items.find((s) => s.id === aberta.id);
+    if (atual && atual !== aberta) setAberta(atual);
+  }, [items, aberta]);
 
   // realtime na lista
   useEffect(() => {
@@ -175,7 +243,9 @@ export default function LojaMinhasDemandas() {
               solicitacao={aberta}
               user={user}
               profileNome={profile?.nome ?? "Loja"}
+              maxCiclos={maxCiclos}
               onClose={() => setAberta(null)}
+              onRefresh={() => void load()}
             />
           )}
         </SheetContent>
@@ -188,17 +258,31 @@ function DetalheSolicitacao({
   solicitacao,
   user,
   profileNome,
+  maxCiclos,
   onClose,
+  onRefresh,
 }: {
   solicitacao: Solicitacao;
   user: { id: string } | null;
   profileNome: string;
+  maxCiclos: number;
   onClose: () => void;
+  onRefresh: () => void;
 }) {
   const [coments, setComents] = useState<Comentario[]>([]);
   const [loading, setLoading] = useState(true);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [revisaoOpen, setRevisaoOpen] = useState(false);
+
+  const meta = (solicitacao.metadata ?? {}) as SolicitacaoMeta;
+  const boletoStatus = meta.boleto_status ?? null;
+  const cicloAtual = Number(meta.boleto_revisao?.ciclo ?? 0);
+  const historico = Array.isArray(meta.boleto_anexos_historico)
+    ? meta.boleto_anexos_historico!
+    : [];
+  const podeSolicitarRevisao =
+    boletoStatus === "enviado" && cicloAtual < maxCiclos;
 
   async function load() {
     setLoading(true);
@@ -271,6 +355,33 @@ function DetalheSolicitacao({
       </SheetHeader>
 
       <div className="flex-1 space-y-3 overflow-y-auto scroll-thin bg-surface-muted p-3">
+        {boletoStatus === "enviado" && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-foreground">Boleto enviado</p>
+                <p className="text-muted-foreground">
+                  Ciclo {cicloAtual}/{maxCiclos} de revisões usado.
+                </p>
+              </div>
+              {podeSolicitarRevisao ? (
+                <Button size="sm" variant="outline" onClick={() => setRevisaoOpen(true)}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                  Solicitar revisão
+                </Button>
+              ) : (
+                <span className="rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                  Limite atingido
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {historico.length > 0 && (
+          <HistoricoBoletos historico={historico} />
+        )}
+
         {loading ? (
           <div className="flex h-32 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -329,7 +440,197 @@ function DetalheSolicitacao({
           </Button>
         </div>
       </div>
+
+      <SolicitarRevisaoDialog
+        open={revisaoOpen}
+        onOpenChange={setRevisaoOpen}
+        solicitacaoId={solicitacao.id}
+        maxCiclos={maxCiclos}
+        onSuccess={() => {
+          setRevisaoOpen(false);
+          onRefresh();
+        }}
+      />
     </>
+  );
+}
+
+function HistoricoBoletos({
+  historico,
+}: {
+  historico: NonNullable<SolicitacaoMeta["boleto_anexos_historico"]>;
+}) {
+  const ordenado = useMemo(
+    () => [...historico].sort((a, b) => (b.ciclo ?? 0) - (a.ciclo ?? 0)),
+    [historico],
+  );
+  return (
+    <div className="rounded-lg border border-border bg-card p-3 text-xs">
+      <p className="mb-2 flex items-center gap-1.5 font-semibold text-foreground">
+        <History className="h-3.5 w-3.5" />
+        Versões anteriores ({ordenado.length})
+      </p>
+      <ul className="space-y-2">
+        {ordenado.map((h, idx) => (
+          <li key={idx} className="rounded border border-border/60 bg-muted/40 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">Ciclo {h.ciclo ?? idx + 1}</span>
+              {h.enviado_em && (
+                <span className="text-[10px] text-muted-foreground">
+                  {format(new Date(h.enviado_em), "d MMM HH:mm", { locale: ptBR })}
+                </span>
+              )}
+            </div>
+            {h.motivo && (
+              <p className="mt-1 italic text-muted-foreground">Motivo: {h.motivo}</p>
+            )}
+            {Array.isArray(h.anexos) && h.anexos.length > 0 && (
+              <ul className="mt-1.5 space-y-1">
+                {h.anexos.map((a, i) => (
+                  <li key={i}>
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-primary underline"
+                    >
+                      <FileText className="h-3 w-3" />
+                      {a.nome ?? `Anexo ${i + 1}`}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const CAMPOS_REVISAO = [
+  { id: "valor", label: "Valor" },
+  { id: "parcelas", label: "Parcelas" },
+  { id: "vencimento", label: "Vencimento" },
+  { id: "dados_cliente", label: "Dados do cliente" },
+] as const;
+
+function SolicitarRevisaoDialog({
+  open,
+  onOpenChange,
+  solicitacaoId,
+  maxCiclos,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  solicitacaoId: string;
+  maxCiclos: number;
+  onSuccess: () => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const [campos, setCampos] = useState<Record<string, boolean>>({});
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setMotivo("");
+      setCampos({});
+      setEnviando(false);
+    }
+  }, [open]);
+
+  const motivoValido = motivo.trim().length >= 5;
+
+  async function submeter() {
+    if (!motivoValido) {
+      toast.error("Informe um motivo com pelo menos 5 caracteres.");
+      return;
+    }
+    setEnviando(true);
+    const campos_revisar = Object.entries(campos)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    const { data, error } = await supabase.functions.invoke("solicitar-revisao-boleto", {
+      body: {
+        solicitacao_id: solicitacaoId,
+        motivo: motivo.trim(),
+        campos_revisar,
+      },
+    });
+    setEnviando(false);
+    if (error) {
+      const msg = (error as any)?.message ?? "";
+      const body = (data as any) ?? {};
+      const code = body?.error ?? body?.code ?? "";
+      if (code === "boleto_ainda_nao_enviado" || /ainda_nao_enviado/i.test(msg)) {
+        toast.error("O boleto ainda não foi enviado pelo Financeiro.");
+      } else if (code === "limite_de_ciclos_atingido" || /limite/i.test(msg)) {
+        toast.error(`Limite de ${maxCiclos} revisões atingido — abra novo pedido.`);
+      } else {
+        toast.error(msg || "Não foi possível solicitar a revisão.");
+      }
+      return;
+    }
+    toast.success("Revisão solicitada. O Financeiro foi notificado.");
+    onSuccess();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Solicitar revisão do boleto</DialogTitle>
+          <DialogDescription>
+            Descreva o que precisa ser ajustado. O Financeiro vai gerar uma nova versão.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="motivo-revisao">Motivo</Label>
+            <Textarea
+              id="motivo-revisao"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              rows={4}
+              placeholder="Ex.: valor da parcela divergente do contrato"
+              className="mt-1"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Mínimo 5 caracteres. ({motivo.trim().length})
+            </p>
+          </div>
+          <div>
+            <p className="mb-1.5 text-sm font-medium">O que revisar? (opcional)</p>
+            <div className="grid grid-cols-2 gap-2">
+              {CAMPOS_REVISAO.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex cursor-pointer items-center gap-2 rounded border border-border bg-muted/30 px-2 py-1.5 text-sm"
+                >
+                  <Checkbox
+                    checked={!!campos[c.id]}
+                    onCheckedChange={(v) =>
+                      setCampos((s) => ({ ...s, [c.id]: v === true }))
+                    }
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={enviando}>
+            Cancelar
+          </Button>
+          <Button onClick={submeter} disabled={enviando || !motivoValido}>
+            {enviando && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            Enviar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
