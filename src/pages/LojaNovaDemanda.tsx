@@ -1417,7 +1417,7 @@ export default function LojaNovaDemanda() {
                 );
               })}
 
-              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) && (
+              {fluxoAtivo.chave !== "gerar_boleto" && (
                 <Button
                   className="w-full"
                   onClick={irParaRevisao}
