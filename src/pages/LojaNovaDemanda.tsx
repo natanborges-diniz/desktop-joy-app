@@ -244,6 +244,13 @@ export default function LojaNovaDemanda() {
   const [carregandoCpfs, setCarregandoCpfs] = useState(false);
   const [consultaCpfSelecionada, setConsultaCpfSelecionada] = useState<string | null>(null);
   const [revisando, setRevisando] = useState(false);
+  // === Wizard de boleto (passos 1..3) ===
+  const [boletoStep, setBoletoStep] = useState<1 | 2 | 3>(1);
+  const [boletoValorTotal, setBoletoValorTotal] = useState<string>("");
+  const [boletoObservacao, setBoletoObservacao] = useState<string>("");
+  const [boletoQtdParcelas, setBoletoQtdParcelas] = useState<number>(1);
+  const [boletoDiaVenc, setBoletoDiaVenc] = useState<number>(10);
+  const [boletoImpresso, setBoletoImpresso] = useState<boolean>(true);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Opção de menu para o fluxo "consulta_cpf" (usada pelo card de bloqueio do boleto)
