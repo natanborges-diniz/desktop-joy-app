@@ -970,6 +970,9 @@ export default function LojaNovaDemanda() {
                               onClick={() => {
                                 setConsultaCpfSelecionada(null);
                                 setDados((d) => ({ ...d, cpf: "", cliente: "", valor: "" }));
+                                setBoletoStep(1);
+                                setBoletoValorTotal("");
+                                setBoletoObservacao("");
                               }}
                               className="text-xs text-muted-foreground underline hover:text-foreground"
                             >
