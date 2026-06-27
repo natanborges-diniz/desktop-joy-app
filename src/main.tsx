@@ -36,7 +36,7 @@ if (isInIframe || isPreviewHost) {
   });
 
   navigator.serviceWorker
-    .register("/sw.js?v=2026-06-12-fix-solicitacao-anexos", { scope: "/" })
+    .register("/sw.js?v=2026-06-27-auto-update", { scope: "/" })
     .then((registration) => {
       registration.update().catch(() => undefined);
       // Checa por updates a cada 60s — importante no iOS standalone.
