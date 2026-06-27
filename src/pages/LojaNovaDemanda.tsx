@@ -419,6 +419,14 @@ export default function LojaNovaDemanda() {
       valor: c.valor != null ? String(c.valor) : (d.valor ?? ""),
     }));
     setErros((e) => ({ ...e, cpf: null, cliente: null, valor: null }));
+    // Semeia wizard de boleto com o valor aprovado
+    const v = c.valor != null ? parseValorBR(String(c.valor)) : NaN;
+    setBoletoValorTotal(Number.isFinite(v) && v > 0 ? v.toFixed(2).replace(".", ",") : "");
+    setBoletoObservacao("");
+    setBoletoQtdParcelas(1);
+    setBoletoDiaVenc(10);
+    setBoletoImpresso(true);
+    setBoletoStep(1);
   }
 
   function voltar() {
