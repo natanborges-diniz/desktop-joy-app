@@ -577,6 +577,70 @@ export default function LojaNovaDemanda() {
     toast.success(`Solicitação ${(data as Resultado).protocolo} aberta!`);
   }
 
+  async function enviarBoleto() {
+    if (!fluxoAtivo || !consultaCpfSelecionada || !cpfsAprovados) return;
+    const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
+    if (!sel) {
+      toast.error("CPF aprovado não encontrado");
+      return;
+    }
+    const valorTotal = parseValorBR(boletoValorTotal);
+    if (!Number.isFinite(valorTotal) || valorTotal <= 0) {
+      toast.error("Informe um valor total válido");
+      return;
+    }
+    if (!Number.isInteger(boletoQtdParcelas) || boletoQtdParcelas < 1 || boletoQtdParcelas > 24) {
+      toast.error("Quantidade de parcelas deve estar entre 1 e 24");
+      return;
+    }
+    if (!Number.isInteger(boletoDiaVenc) || boletoDiaVenc < 1 || boletoDiaVenc > 28) {
+      toast.error("Dia de vencimento deve estar entre 1 e 28");
+      return;
+    }
+    const valorParcela = Math.round((valorTotal / boletoQtdParcelas) * 100) / 100;
+
+    setEnviando(true);
+    const payload: Record<string, unknown> = {
+      fluxo_chave: fluxoAtivo.chave,
+      dados: {
+        consulta_cpf_id: consultaCpfSelecionada,
+        cpf: sel.cpf ?? "",
+        cliente: sel.cliente ?? "",
+        valor_total: valorTotal.toFixed(2),
+        qtd_parcelas: String(boletoQtdParcelas),
+        dia_vencimento: String(boletoDiaVenc),
+        valor_parcela: valorParcela.toFixed(2),
+        boleto_impresso: boletoImpresso ? "true" : "false",
+        observacao: boletoObservacao ?? "",
+      },
+      // Campos planos para a EF (contrato boleto)
+      tipo: "boleto",
+      cliente_nome: sel.cliente ?? "",
+      cpf: sel.cpf ?? "",
+      valor_total: valorTotal,
+      qtd_parcelas: boletoQtdParcelas,
+      dia_vencimento: boletoDiaVenc,
+      valor_parcela: valorParcela,
+      boleto_impresso: boletoImpresso,
+      observacao: boletoObservacao || undefined,
+      anexos: [],
+    };
+    if (lojaNome) {
+      payload.loja = { nome_loja: lojaNome, cod_empresa: codEmpresa };
+      payload.loja_nome = lojaNome;
+    }
+    const { data, error } = await supabase.functions.invoke("criar-solicitacao-loja", {
+      body: payload,
+    });
+    setEnviando(false);
+    if (error || (data as any)?.error) {
+      toast.error((data as any)?.error || error?.message || "Falha ao gerar boleto");
+      return;
+    }
+    setResultado(data as Resultado);
+    toast.success("Solicitação enviada. O Financeiro vai gerar os boletos e devolver aqui no chat.");
+  }
+
   function copiar(text: string) {
     navigator.clipboard.writeText(text).then(
       () => toast.success("Copiado!"),
