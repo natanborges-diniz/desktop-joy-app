@@ -118,6 +118,14 @@ type Resultado = {
   payment_link_id?: string;
   cliente_envio_status?: "enviado" | "falhou" | "pulado";
   cliente_envio_erro?: string | null;
+  metadata?: {
+    qtd_parcelas?: number;
+    dia_vencimento?: number;
+    valor_parcela?: number;
+    valor_total?: number;
+    boleto_impresso?: boolean;
+    boleto_parcelas_projecao?: BoletoProjecaoItem[];
+  } | null;
 };
 
 const CAMPOS_TRAVADOS_BOLETO = new Set(["cpf", "cliente", "valor"]);
