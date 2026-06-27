@@ -12,6 +12,7 @@ import {
   Paperclip,
   Send,
   X,
+  Printer,
 } from "lucide-react";
 import { supabase, SOLICITACAO_ANEXOS_BUCKET } from "@/integrations/supabase/client";
 import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
@@ -21,7 +22,42 @@ import { useLojasAtivas } from "@/hooks/useLojasAtivas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+type BoletoProjecaoItem = { numero: number; vencimento: string; valor: number };
+
+function projetarParcelasLocal(
+  valorTotal: number,
+  qtdParcelas: number,
+  diaVencimento: number,
+): BoletoProjecaoItem[] {
+  if (!Number.isFinite(valorTotal) || valorTotal <= 0) return [];
+  if (!Number.isInteger(qtdParcelas) || qtdParcelas < 1) return [];
+  if (!Number.isInteger(diaVencimento) || diaVencimento < 1 || diaVencimento > 28) return [];
+  const valorParcela = Math.round((valorTotal / qtdParcelas) * 100) / 100;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const primeira = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
+  if (primeira < hoje) primeira.setMonth(primeira.getMonth() + 1);
+  const itens: BoletoProjecaoItem[] = [];
+  for (let i = 0; i < qtdParcelas; i++) {
+    const d = new Date(primeira.getFullYear(), primeira.getMonth() + i, diaVencimento);
+    itens.push({
+      numero: i + 1,
+      vencimento: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      valor: valorParcela,
+    });
+  }
+  return itens;
+}
+
+function formatarDataVenc(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
 
 type MenuOpcao = {
   id: string;
@@ -82,6 +118,14 @@ type Resultado = {
   payment_link_id?: string;
   cliente_envio_status?: "enviado" | "falhou" | "pulado";
   cliente_envio_erro?: string | null;
+  metadata?: {
+    qtd_parcelas?: number;
+    dia_vencimento?: number;
+    valor_parcela?: number;
+    valor_total?: number;
+    boleto_impresso?: boolean;
+    boleto_parcelas_projecao?: BoletoProjecaoItem[];
+  } | null;
 };
 
 const CAMPOS_TRAVADOS_BOLETO = new Set(["cpf", "cliente", "valor"]);
@@ -200,6 +244,13 @@ export default function LojaNovaDemanda() {
   const [carregandoCpfs, setCarregandoCpfs] = useState(false);
   const [consultaCpfSelecionada, setConsultaCpfSelecionada] = useState<string | null>(null);
   const [revisando, setRevisando] = useState(false);
+  // === Wizard de boleto (passos 1..3) ===
+  const [boletoStep, setBoletoStep] = useState<1 | 2 | 3>(1);
+  const [boletoValorTotal, setBoletoValorTotal] = useState<string>("");
+  const [boletoObservacao, setBoletoObservacao] = useState<string>("");
+  const [boletoQtdParcelas, setBoletoQtdParcelas] = useState<number>(1);
+  const [boletoDiaVenc, setBoletoDiaVenc] = useState<number>(10);
+  const [boletoImpresso, setBoletoImpresso] = useState<boolean>(true);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Opção de menu para o fluxo "consulta_cpf" (usada pelo card de bloqueio do boleto)
@@ -368,6 +419,14 @@ export default function LojaNovaDemanda() {
       valor: c.valor != null ? String(c.valor) : (d.valor ?? ""),
     }));
     setErros((e) => ({ ...e, cpf: null, cliente: null, valor: null }));
+    // Semeia wizard de boleto com o valor aprovado
+    const v = c.valor != null ? parseValorBR(String(c.valor)) : NaN;
+    setBoletoValorTotal(Number.isFinite(v) && v > 0 ? v.toFixed(2).replace(".", ",") : "");
+    setBoletoObservacao("");
+    setBoletoQtdParcelas(1);
+    setBoletoDiaVenc(10);
+    setBoletoImpresso(true);
+    setBoletoStep(1);
   }
 
   function voltar() {
@@ -518,6 +577,70 @@ export default function LojaNovaDemanda() {
     toast.success(`Solicitação ${(data as Resultado).protocolo} aberta!`);
   }
 
+  async function enviarBoleto() {
+    if (!fluxoAtivo || !consultaCpfSelecionada || !cpfsAprovados) return;
+    const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
+    if (!sel) {
+      toast.error("CPF aprovado não encontrado");
+      return;
+    }
+    const valorTotal = parseValorBR(boletoValorTotal);
+    if (!Number.isFinite(valorTotal) || valorTotal <= 0) {
+      toast.error("Informe um valor total válido");
+      return;
+    }
+    if (!Number.isInteger(boletoQtdParcelas) || boletoQtdParcelas < 1 || boletoQtdParcelas > 24) {
+      toast.error("Quantidade de parcelas deve estar entre 1 e 24");
+      return;
+    }
+    if (!Number.isInteger(boletoDiaVenc) || boletoDiaVenc < 1 || boletoDiaVenc > 28) {
+      toast.error("Dia de vencimento deve estar entre 1 e 28");
+      return;
+    }
+    const valorParcela = Math.round((valorTotal / boletoQtdParcelas) * 100) / 100;
+
+    setEnviando(true);
+    const payload: Record<string, unknown> = {
+      fluxo_chave: fluxoAtivo.chave,
+      dados: {
+        consulta_cpf_id: consultaCpfSelecionada,
+        cpf: sel.cpf ?? "",
+        cliente: sel.cliente ?? "",
+        valor_total: valorTotal.toFixed(2),
+        qtd_parcelas: String(boletoQtdParcelas),
+        dia_vencimento: String(boletoDiaVenc),
+        valor_parcela: valorParcela.toFixed(2),
+        boleto_impresso: boletoImpresso ? "true" : "false",
+        observacao: boletoObservacao ?? "",
+      },
+      // Campos planos para a EF (contrato boleto)
+      tipo: "boleto",
+      cliente_nome: sel.cliente ?? "",
+      cpf: sel.cpf ?? "",
+      valor_total: valorTotal,
+      qtd_parcelas: boletoQtdParcelas,
+      dia_vencimento: boletoDiaVenc,
+      valor_parcela: valorParcela,
+      boleto_impresso: boletoImpresso,
+      observacao: boletoObservacao || undefined,
+      anexos: [],
+    };
+    if (lojaNome) {
+      payload.loja = { nome_loja: lojaNome, cod_empresa: codEmpresa };
+      payload.loja_nome = lojaNome;
+    }
+    const { data, error } = await supabase.functions.invoke("criar-solicitacao-loja", {
+      body: payload,
+    });
+    setEnviando(false);
+    if (error || (data as any)?.error) {
+      toast.error((data as any)?.error || error?.message || "Falha ao gerar boleto");
+      return;
+    }
+    setResultado(data as Resultado);
+    toast.success("Solicitação enviada. O Financeiro vai gerar os boletos e devolver aqui no chat.");
+  }
+
   function copiar(text: string) {
     navigator.clipboard.writeText(text).then(
       () => toast.success("Copiado!"),
@@ -643,6 +766,41 @@ export default function LojaNovaDemanda() {
                   )}
                 </div>
               )}
+
+              {resultado.metadata?.boleto_parcelas_projecao?.length ? (
+                <div className="mt-4 rounded-lg border border-border">
+                  <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2 text-xs">
+                    <span className="font-semibold text-foreground">
+                      {resultado.metadata.qtd_parcelas}x{" "}
+                      {formatarBRL(resultado.metadata.valor_parcela)}
+                    </span>
+                    {resultado.metadata.boleto_impresso ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">
+                        <Printer className="h-3 w-3" /> Imprimir e entregar
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">
+                        Envio digital
+                      </span>
+                    )}
+                  </div>
+                  <div className="divide-y divide-border">
+                    {resultado.metadata.boleto_parcelas_projecao.map((p) => (
+                      <div
+                        key={p.numero}
+                        className="grid grid-cols-3 gap-2 px-3 py-1.5 text-xs"
+                      >
+                        <span className="font-mono">
+                          {p.numero}/{resultado.metadata?.qtd_parcelas}
+                        </span>
+                        <span>{formatarDataVenc(p.vencimento)}</span>
+                        <span className="text-right font-medium">{formatarBRL(p.valor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
 
               <div className="mt-5 flex gap-2">
                 <Button variant="outline" onClick={() => navigate("/minhas-demandas")}>
@@ -847,6 +1005,9 @@ export default function LojaNovaDemanda() {
                               onClick={() => {
                                 setConsultaCpfSelecionada(null);
                                 setDados((d) => ({ ...d, cpf: "", cliente: "", valor: "" }));
+                                setBoletoStep(1);
+                                setBoletoValorTotal("");
+                                setBoletoObservacao("");
                               }}
                               className="text-xs text-muted-foreground underline hover:text-foreground"
                             >
@@ -874,7 +1035,214 @@ export default function LojaNovaDemanda() {
                 </>
               )}
 
-              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) &&
+              {/* === Wizard de Boleto (3 passos) === */}
+              {fluxoAtivo.chave === "gerar_boleto" && consultaCpfSelecionada && (() => {
+                const sel = cpfsAprovados?.find((x) => x.id === consultaCpfSelecionada);
+                const valorTotalNum = parseValorBR(boletoValorTotal);
+                const valorParcela =
+                  Number.isFinite(valorTotalNum) && valorTotalNum > 0 && boletoQtdParcelas > 0
+                    ? Math.round((valorTotalNum / boletoQtdParcelas) * 100) / 100
+                    : 0;
+                const projecao = projetarParcelasLocal(valorTotalNum, boletoQtdParcelas, boletoDiaVenc);
+                return (
+                  <div className="space-y-4">
+                    {/* Stepper */}
+                    <div className="flex items-center gap-2 text-xs">
+                      {[1, 2, 3].map((n) => (
+                        <div
+                          key={n}
+                          className={`flex h-7 flex-1 items-center justify-center rounded-full border ${
+                            boletoStep === n
+                              ? "border-primary bg-primary/10 font-semibold text-primary"
+                              : boletoStep > n
+                                ? "border-primary/40 bg-primary/5 text-primary"
+                                : "border-border bg-muted/30 text-muted-foreground"
+                          }`}
+                        >
+                          {n}. {n === 1 ? "Cliente e valor" : n === 2 ? "Condições" : "Conferir"}
+                        </div>
+                      ))}
+                    </div>
+
+                    {boletoStep === 1 && (
+                      <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-soft">
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Cliente
+                          </Label>
+                          <p className="text-sm font-medium text-foreground">{sel?.cliente ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">CPF {mascararCpf(sel?.cpf ?? "")}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="valor_total">Valor total (R$)</Label>
+                          <Input
+                            id="valor_total"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={boletoValorTotal}
+                            onChange={(e) => setBoletoValorTotal(e.target.value)}
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Valor aprovado: {formatarBRL(sel?.valor)} — pode ajustar se necessário.
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="obs">Observação (opcional)</Label>
+                          <Textarea
+                            id="obs"
+                            rows={3}
+                            value={boletoObservacao}
+                            onChange={(e) => setBoletoObservacao(e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => {
+                            const v = parseValorBR(boletoValorTotal);
+                            if (!Number.isFinite(v) || v <= 0) {
+                              toast.error("Informe um valor total válido");
+                              return;
+                            }
+                            setBoletoStep(2);
+                          }}
+                        >
+                          Avançar <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {boletoStep === 2 && (
+                      <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-soft">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="qtd_parcelas">Quantidade de parcelas</Label>
+                          <select
+                            id="qtd_parcelas"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+                            value={boletoQtdParcelas}
+                            onChange={(e) => setBoletoQtdParcelas(Number(e.target.value))}
+                          >
+                            {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                {n}x
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-muted-foreground">
+                            Valor por parcela:{" "}
+                            <span className="font-semibold text-foreground">
+                              {formatarBRL(valorParcela)}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="dia_venc">Dia de vencimento (1 a 28)</Label>
+                          <select
+                            id="dia_venc"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+                            value={boletoDiaVenc}
+                            onChange={(e) => setBoletoDiaVenc(Number(e.target.value))}
+                          >
+                            {Array.from({ length: 28 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                Dia {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground">
+                              Enviar boletos impressos?
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {boletoImpresso
+                                ? "A loja imprime e entrega ao cliente."
+                                : "Apenas envio digital pelo WhatsApp."}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={boletoImpresso}
+                            onCheckedChange={(v) => setBoletoImpresso(!!v)}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setBoletoStep(1)}
+                          >
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                          </Button>
+                          <Button className="flex-1" onClick={() => setBoletoStep(3)}>
+                            Pré-visualizar <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {boletoStep === 3 && (
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
+                          Confira a projeção das parcelas antes de enviar ao Financeiro.
+                        </div>
+                        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+                          <div className="grid grid-cols-3 gap-2 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>Parcela</span>
+                            <span>Vencimento</span>
+                            <span className="text-right">Valor</span>
+                          </div>
+                          {projecao.map((p) => (
+                            <div
+                              key={p.numero}
+                              className="grid grid-cols-3 gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                            >
+                              <span className="font-mono">
+                                {p.numero}/{boletoQtdParcelas}
+                              </span>
+                              <span>{formatarDataVenc(p.vencimento)}</span>
+                              <span className="text-right font-medium">{formatarBRL(p.valor)}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-2 text-sm">
+                            <span className="text-muted-foreground">Total</span>
+                            <span className="font-semibold text-foreground">
+                              {formatarBRL(valorTotalNum)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                          Modo: <strong className="text-foreground">{boletoImpresso ? "Impresso" : "Digital"}</strong>
+                          {boletoObservacao ? <> · Obs.: {boletoObservacao}</> : null}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => setBoletoStep(2)}
+                            disabled={enviando}
+                          >
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                          </Button>
+                          <Button
+                            className="w-full flex-1"
+                            onClick={enviarBoleto}
+                            disabled={enviando}
+                          >
+                            {enviando ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="mr-2 h-4 w-4" />
+                            )}
+                            Confirmar envio ao Financeiro
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {fluxoAtivo.chave !== "gerar_boleto" &&
                 fluxoAtivo.etapas.map((et) => {
                   const erro = erros[et.campo];
                   const label = et.label ?? et.mensagem ?? et.campo;
@@ -1087,7 +1455,7 @@ export default function LojaNovaDemanda() {
                 );
               })}
 
-              {(fluxoAtivo.chave !== "gerar_boleto" || consultaCpfSelecionada) && (
+              {fluxoAtivo.chave !== "gerar_boleto" && (
                 <Button
                   className="w-full"
                   onClick={irParaRevisao}
