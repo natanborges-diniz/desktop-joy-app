@@ -1,48 +1,70 @@
-## Recebimento de OS — plano
+## Problemas atuais (visíveis no print)
 
-Como você confirmou só "OS, cliente, Produto" e o resto eu não consigo inspecionar (backend externo), vou trabalhar com **suposições claras** e ajustar depois se algum nome estiver diferente.
+1. **Barra vermelha de "avisos pendentes"** começa em `top: 0` e fica embaixo do notch/Dynamic Island, status bar (hora, bateria, sinal) — texto sobreposto, botão "Ver avisos" inalcançável.
+2. **Bottom nav móvel** tem 10 itens (Conversas, Agenda, Demandas, Minhas lojas, Abrir, Minhas, Recebimento, Cashback, Avisos, Perfil) espremidos em uma linha — labels se sobrepõem ("ConversasAgendaDemandas…", "RecebimentoCashback…").
+3. **Rail desktop** mostra só ícones, sem label nem tooltip ao passar o mouse — fica adivinhação.
 
-### Suposições de schema (`os_recebimento_loja`)
-Vou assumir estas colunas — se algum nome real for diferente, me diga só os que mudam:
+## Plano
 
-| Coluna assumida | Uso |
-|---|---|
-| `id uuid` | PK enviada à edge function |
-| `numero_os text` | título do card |
-| `cliente_nome text` | linha "Cliente" |
-| `produto text` | linha "Produto" |
-| `data_movimentacao timestamptz` (ou `date`) | "Movimentado em D-1" |
-| `loja_nome text` | filtro contra `user_acessos.lojas[]` |
-| `recebido_at timestamptz` | NULL = pendente, NOT NULL = histórico |
-| `recebido_por uuid` / `recebido_por_nome text` | exibido no histórico (se existir) |
-| `created_at timestamptz` | ordenação fallback |
+### 1. Safe-area no topo (iOS notch + Android status bar)
 
-### Contrato edge function
-`supabase.functions.invoke('confirmar-recebimento-os', { body: { os_recebimento_id } })` — vou tratar:
-- sucesso = sem `error` no retorno do invoke E sem `data.error`
-- qualquer falha → toast de erro + manter card na lista
+**`src/components/PendenciasBanner.tsx`**
+- Hoje: `sticky top-0 … pt-safe`. O `pt-safe` adiciona padding interno, mas o conteúdo (ícone + texto + botão) ainda começa na linha 0 visual quando a status bar é translúcida. Trocar por `padding-top: calc(env(safe-area-inset-top) + 0.5rem)` real e garantir altura mínima depois da safe-area.
+- Mesma correção para qualquer outro banner sticky no topo: `UpdateAvailableBanner` e `PushOnboardingBanner`.
 
-Sem headers extras (o invoke já manda o auth do usuário logado).
+**`index.html`**
+- Confirmar `<meta name="viewport" content="… viewport-fit=cover">` (necessário para `env(safe-area-inset-top)` retornar valor real no iOS PWA).
+- Confirmar `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` — sem isso o iOS reserva espaço próprio e o efeito muda.
 
-### Arquivos novos
-1. **`src/pages/LojaRecebimentoOS.tsx`** — página com 2 abas (Pendentes / Já recebidas).
-   - Pendentes: `select * from os_recebimento_loja where loja_nome in (<lojas do user_acessos>) and recebido_at is null order by data_movimentacao desc nulls last`.
-   - Cada card: número OS, cliente, produto, data movimentação formatada, botão "Confirmar recebimento" com loading state.
-   - Após sucesso: remove o card otimisticamente + toast.
-   - Histórico: mesma query com `recebido_at is not null and recebido_at >= now() - interval '30 days'`.
-2. **`src/hooks/useRecebimentoOSPendentes.ts`** — retorna `{ count, rows, loading, refetch }`, com canal realtime `os-recebimento` ouvindo `INSERT`/`UPDATE`/`DELETE` em `os_recebimento_loja` filtrado pelas lojas do usuário. Usado tanto pela página quanto pelo badge do menu.
+**`src/index.css`**
+- Adicionar utilitário `.safe-top` = `padding-top: max(env(safe-area-inset-top), 0.5rem)` para reuso.
 
-### Arquivos alterados
-3. **`src/App.tsx`** — rota `/recebimento-os` → `LojaRecebimentoOS`.
-4. **`src/components/AppShell.tsx`** — novo item no menu (`PackageCheck` da lucide), `modulo: "menu_loja"`, com badge igual ao de mensagens (mostra `count` pendentes). Reutiliza o hook acima.
+### 2. Bottom nav móvel — reduzir para 5 itens + "Mais"
 
-### Não vou mexer
-- Backend externo (tabela, RLS, edge function, publicação realtime) — você confirmou que está pronto.
-- `src/integrations/supabase/client.ts` (auto-gen-ish, projeto externo).
-- Nada de push: você marcou como opcional e o `dispatch-push` deve ficar no backend, não no Messenger.
+Padrão consagrado (iOS/Android): no máximo 5 slots no tab bar. Hoje são até 10 itens condicionais.
 
-### Riscos
-- Se algum nome de coluna divergir, a página vai dar erro de query no console — fix de 1 linha.
-- Se a publicação `supabase_realtime` não estiver de fato com `os_recebimento_loja`, o realtime falha silencioso; a lista ainda funciona via refetch ao montar.
+**Proposta de slots fixos (mobile):**
+
+| Slot | Item | Visível para |
+|---|---|---|
+| 1 | Conversas | chat_1a1 ou chat_grupo |
+| 2 | Demandas | menu_loja (ou Minhas lojas para supervisão) |
+| 3 | Abrir (+) | menu_loja — botão central destacado |
+| 4 | Avisos | todos |
+| 5 | Mais | todos — abre Sheet/Drawer |
+
+O **"Mais"** abre um `Sheet` (shadcn) inferior listando os itens que sobraram: Agenda, Minhas lojas, Minhas demandas, Recebimento, Cashback, Perfil — com ícone + label completos, em lista vertical confortável.
+
+Regras:
+- Se o usuário tem ≤5 itens elegíveis no total, mostra todos direto (sem "Mais").
+- Item "Abrir" continua destaque visual (cor primária, levemente elevado), como hoje.
+- Badge de não-lidas continua em "Conversas".
+- Badge agregado de "tem coisa nova" aparece em "Mais" quando algum item escondido tem pendência.
+
+**Arquivos:**
+- `src/components/AppShell.tsx`: refatorar `baseItems` em `primaryItems` (5 slots) e `secondaryItems`. Mobile renderiza primary + botão "Mais". Desktop continua renderizando tudo no rail.
+- Novo `src/components/MoreMenuSheet.tsx`: Sheet com a lista dos secundários.
+
+### 3. Rail desktop — labels ao hover
+
+**`src/components/AppShell.tsx`**
+- Envolver cada `NavLink` do rail em `Tooltip` (shadcn já instalado: `src/components/ui/tooltip.tsx`) com `side="right"`, mostrando o `label` no hover.
+- Alternativa adicional (opcional): rail expansível ao hover (de `w-16` para `w-48` com `transition-[width]`), revelando os labels inline. Marcar como opção B no implementar — começamos com tooltip por ser mais leve e previsível.
+- Envolver o rail inteiro em `<TooltipProvider delayDuration={150}>`.
+
+### 4. Pequenos ajustes de consistência
+
+- Os labels truncados no print ("Recebime", "Cashback", "Conversas") confirmam que mesmo com 5 itens o texto precisa de `truncate` + `text-[10px]` ou esconder label quando não couber. Definir: até 5 itens → ícone + label; o "Mais" sempre tem label "Mais".
+- Manter `pb-safe` no bottom nav (já existe) para respeitar home indicator do iPhone.
+
+## Não vou mexer
+
+- Conteúdo das páginas, rotas, autenticação, backend, upload de anexo, push — escopo é só layout/navegação.
+- Cores e tipografia globais.
+
+## Riscos
+
+- Mudar status bar para `black-translucent` muda a aparência em PWAs já instalados (status bar fica sobre o header escuro). Como o header já é escuro (`bg-gradient-header`), o efeito é desejado.
+- Usuários acostumados com Cashback/Agenda no bottom precisarão clicar em "Mais" — ganho de usabilidade compensa.
 
 Posso seguir?
