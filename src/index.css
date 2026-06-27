@@ -141,6 +141,10 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /* Banner sticky no topo precisa empurrar o conteúdo abaixo do notch/status bar */
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top, 0px), 0.5rem);
+  }
 }
 
 @layer components {

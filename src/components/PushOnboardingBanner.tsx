@@ -44,7 +44,7 @@ export function PushOnboardingBanner() {
   }
 
   return (
-    <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-amber-500/40 bg-amber-500 px-4 py-2 text-amber-950 shadow-soft">
+    <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-amber-500/40 bg-amber-500 px-4 pb-2 safe-top text-amber-950 shadow-soft">
       <BellRing className="h-4 w-4 shrink-0 animate-pulse" />
       <p className="min-w-0 flex-1 text-sm font-medium">
         Ative as notificações para receber demandas urgentes.

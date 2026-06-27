@@ -33,7 +33,7 @@ export function UpdateAvailableBanner() {
   }
 
   return (
-    <div className="sticky top-0 z-50 flex items-center gap-3 border-b border-primary/40 bg-primary px-4 py-2 text-primary-foreground shadow-soft">
+    <div className="sticky top-0 z-50 flex items-center gap-3 border-b border-primary/40 bg-primary px-4 pb-2 safe-top text-primary-foreground shadow-soft">
       <RefreshCw className="h-4 w-4 shrink-0 animate-spin" />
       <p className="min-w-0 flex-1 text-sm font-medium">
         Nova versão disponível — recarregue para atualizar.
