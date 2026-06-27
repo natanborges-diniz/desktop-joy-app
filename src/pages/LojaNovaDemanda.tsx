@@ -767,6 +767,41 @@ export default function LojaNovaDemanda() {
                 </div>
               )}
 
+              {resultado.metadata?.boleto_parcelas_projecao?.length ? (
+                <div className="mt-4 rounded-lg border border-border">
+                  <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2 text-xs">
+                    <span className="font-semibold text-foreground">
+                      {resultado.metadata.qtd_parcelas}x{" "}
+                      {formatarBRL(resultado.metadata.valor_parcela)}
+                    </span>
+                    {resultado.metadata.boleto_impresso ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">
+                        <Printer className="h-3 w-3" /> Imprimir e entregar
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">
+                        Envio digital
+                      </span>
+                    )}
+                  </div>
+                  <div className="divide-y divide-border">
+                    {resultado.metadata.boleto_parcelas_projecao.map((p) => (
+                      <div
+                        key={p.numero}
+                        className="grid grid-cols-3 gap-2 px-3 py-1.5 text-xs"
+                      >
+                        <span className="font-mono">
+                          {p.numero}/{resultado.metadata?.qtd_parcelas}
+                        </span>
+                        <span>{formatarDataVenc(p.vencimento)}</span>
+                        <span className="text-right font-medium">{formatarBRL(p.valor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+
               <div className="mt-5 flex gap-2">
                 <Button variant="outline" onClick={() => navigate("/minhas-demandas")}>
                   Ver minhas demandas
