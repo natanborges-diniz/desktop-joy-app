@@ -415,6 +415,17 @@ export default function LojaNovaDemanda() {
 
 
   function escolherCpfAprovado(c: CpfAprovado) {
+    if (c.boleto_solicitacao_id) {
+      const quando = c.boleto_solicitacao_data
+        ? format(new Date(c.boleto_solicitacao_data), "dd/MM", { locale: ptBR })
+        : null;
+      toast.error(
+        quando
+          ? `Esta consulta já originou o boleto em ${quando}. Abra nova consulta de CPF.`
+          : "Esta consulta já originou um boleto. Abra nova consulta de CPF.",
+      );
+      return;
+    }
     setConsultaCpfSelecionada(c.id);
     setDados((d) => ({
       ...d,
