@@ -12,6 +12,7 @@ import {
   Paperclip,
   Send,
   X,
+  Printer,
 } from "lucide-react";
 import { supabase, SOLICITACAO_ANEXOS_BUCKET } from "@/integrations/supabase/client";
 import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
@@ -21,7 +22,42 @@ import { useLojasAtivas } from "@/hooks/useLojasAtivas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+type BoletoProjecaoItem = { numero: number; vencimento: string; valor: number };
+
+function projetarParcelasLocal(
+  valorTotal: number,
+  qtdParcelas: number,
+  diaVencimento: number,
+): BoletoProjecaoItem[] {
+  if (!Number.isFinite(valorTotal) || valorTotal <= 0) return [];
+  if (!Number.isInteger(qtdParcelas) || qtdParcelas < 1) return [];
+  if (!Number.isInteger(diaVencimento) || diaVencimento < 1 || diaVencimento > 28) return [];
+  const valorParcela = Math.round((valorTotal / qtdParcelas) * 100) / 100;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const primeira = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
+  if (primeira < hoje) primeira.setMonth(primeira.getMonth() + 1);
+  const itens: BoletoProjecaoItem[] = [];
+  for (let i = 0; i < qtdParcelas; i++) {
+    const d = new Date(primeira.getFullYear(), primeira.getMonth() + i, diaVencimento);
+    itens.push({
+      numero: i + 1,
+      vencimento: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      valor: valorParcela,
+    });
+  }
+  return itens;
+}
+
+function formatarDataVenc(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
 
 type MenuOpcao = {
   id: string;
