@@ -134,6 +134,22 @@ export default function LojaMinhasDemandas() {
     void carregarMaxCiclos().then(setMaxCiclos);
   }, []);
 
+  // Abre automaticamente a solicitação vinda por deep-link (?solicitacao=:id),
+  // tipicamente quando o usuário toca/clica em uma notificação.
+  useEffect(() => {
+    const solId = searchParams.get("solicitacao");
+    if (!solId || loading) return;
+    const alvo = items.find((s) => s.id === solId);
+    if (alvo) {
+      setAberta(alvo);
+      // limpa o query param para que recarregar a página não force o reabrir
+      const next = new URLSearchParams(searchParams);
+      next.delete("solicitacao");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, items, loading, setSearchParams]);
+
+
   // mantém a SOL aberta sincronizada com a lista (metadata atualiza após revisão)
   useEffect(() => {
     if (!aberta) return;
