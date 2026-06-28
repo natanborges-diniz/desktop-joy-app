@@ -271,10 +271,12 @@ export default function NotificacoesList() {
                         <p className="mt-0.5 text-sm text-muted-foreground">{n.mensagem}</p>
                       )}
                       {showActions && (
-                        <AcaoAgendamentoButtons
-                          agendamentoId={n.referencia_id!}
-                          onDone={() => void marcarLidaPorAgendamento(n.referencia_id!)}
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <AcaoAgendamentoButtons
+                            agendamentoId={n.referencia_id!}
+                            onDone={() => void marcarLidaPorAgendamento(n.referencia_id!)}
+                          />
+                        </div>
                       )}
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <p className="text-[11px] text-muted-foreground">
@@ -285,7 +287,10 @@ export default function NotificacoesList() {
                         </p>
                         {!n.lida && !showActions && (
                           <button
-                            onClick={() => void marcarLida(n.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void marcarLida(n.id);
+                            }}
                             className="rounded-md border border-primary/40 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10"
                           >
                             Marcar como lida
@@ -296,17 +301,19 @@ export default function NotificacoesList() {
                     {!n.lida && (
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           void (n.referencia_id && showActions
                             ? marcarLidaPorAgendamento(n.referencia_id)
-                            : marcarLida(n.id))
-                        }
+                            : marcarLida(n.id));
+                        }}
                         aria-label="Dispensar aviso"
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
                       >
                         <XIcon className="h-4 w-4" />
                       </button>
                     )}
+
                   </Card>
                 </li>
               );
