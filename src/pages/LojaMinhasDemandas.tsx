@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useLojaContext } from "@/hooks/useLojaContext";
@@ -97,6 +97,7 @@ async function carregarMaxCiclos(): Promise<number> {
 
 export default function LojaMinhasDemandas() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
 
@@ -104,6 +105,7 @@ export default function LojaMinhasDemandas() {
   const [loading, setLoading] = useState(true);
   const [aberta, setAberta] = useState<Solicitacao | null>(null);
   const [maxCiclos, setMaxCiclos] = useState<number>(MAX_CICLOS_FALLBACK);
+
 
   async function load() {
     if (!lojaNome) {
@@ -131,6 +133,22 @@ export default function LojaMinhasDemandas() {
   useEffect(() => {
     void carregarMaxCiclos().then(setMaxCiclos);
   }, []);
+
+  // Abre automaticamente a solicitação vinda por deep-link (?solicitacao=:id),
+  // tipicamente quando o usuário toca/clica em uma notificação.
+  useEffect(() => {
+    const solId = searchParams.get("solicitacao");
+    if (!solId || loading) return;
+    const alvo = items.find((s) => s.id === solId);
+    if (alvo) {
+      setAberta(alvo);
+      // limpa o query param para que recarregar a página não force o reabrir
+      const next = new URLSearchParams(searchParams);
+      next.delete("solicitacao");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, items, loading, setSearchParams]);
+
 
   // mantém a SOL aberta sincronizada com a lista (metadata atualiza após revisão)
   useEffect(() => {

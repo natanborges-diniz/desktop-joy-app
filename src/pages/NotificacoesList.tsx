@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, Loader2, CalendarClock, X as XIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { Card } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
 import { cn } from "@/lib/utils";
+import { resolveNotifLink } from "@/lib/notifLinks";
+
 
 type NotifTipo =
   | "agendamento_novo_loja"
@@ -67,10 +70,30 @@ function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | nu
 }
 
 export default function NotificacoesList() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const isLoja = (profile?.tipo_usuario ?? "").toLowerCase() === "loja";
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [verLidas, setVerLidas] = useState(false);
+
+  async function abrirNotificacao(n: Notif) {
+    if (!n.lida) {
+      void supabase.from("notificacoes").update({ lida: true }).eq("id", n.id);
+      setItems((prev) =>
+        verLidas
+          ? prev.map((x) => (x.id === n.id ? { ...x, lida: true } : x))
+          : prev.filter((x) => x.id !== n.id),
+      );
+    }
+    const url = resolveNotifLink(
+      { tipo: n.tipo, referencia_id: n.referencia_id, titulo: n.titulo, mensagem: n.mensagem },
+      isLoja,
+    );
+    if (url && url !== "/notificacoes") navigate(url);
+  }
+
+
 
   async function load() {
     if (!user) return;
@@ -215,11 +238,21 @@ export default function NotificacoesList() {
               return (
                 <li key={n.id}>
                   <Card
+                    onClick={() => void abrirNotificacao(n)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        void abrirNotificacao(n);
+                      }
+                    }}
                     className={cn(
-                      "relative flex items-start gap-3 p-4 shadow-soft",
+                      "relative flex cursor-pointer items-start gap-3 p-4 shadow-soft transition-shadow hover:shadow-elevated focus:outline-none focus:ring-2 focus:ring-primary",
                       n.lida && "opacity-60",
                     )}
                   >
+
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
                       {isAg ? <CalendarClock className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                     </div>
@@ -238,10 +271,12 @@ export default function NotificacoesList() {
                         <p className="mt-0.5 text-sm text-muted-foreground">{n.mensagem}</p>
                       )}
                       {showActions && (
-                        <AcaoAgendamentoButtons
-                          agendamentoId={n.referencia_id!}
-                          onDone={() => void marcarLidaPorAgendamento(n.referencia_id!)}
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <AcaoAgendamentoButtons
+                            agendamentoId={n.referencia_id!}
+                            onDone={() => void marcarLidaPorAgendamento(n.referencia_id!)}
+                          />
+                        </div>
                       )}
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <p className="text-[11px] text-muted-foreground">
@@ -252,7 +287,10 @@ export default function NotificacoesList() {
                         </p>
                         {!n.lida && !showActions && (
                           <button
-                            onClick={() => void marcarLida(n.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void marcarLida(n.id);
+                            }}
                             className="rounded-md border border-primary/40 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10"
                           >
                             Marcar como lida
@@ -263,17 +301,19 @@ export default function NotificacoesList() {
                     {!n.lida && (
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           void (n.referencia_id && showActions
                             ? marcarLidaPorAgendamento(n.referencia_id)
-                            : marcarLida(n.id))
-                        }
+                            : marcarLida(n.id));
+                        }}
                         aria-label="Dispensar aviso"
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
                       >
                         <XIcon className="h-4 w-4" />
                       </button>
                     )}
+
                   </Card>
                 </li>
               );
