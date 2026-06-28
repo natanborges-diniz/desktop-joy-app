@@ -238,11 +238,21 @@ export default function NotificacoesList() {
               return (
                 <li key={n.id}>
                   <Card
+                    onClick={() => void abrirNotificacao(n)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        void abrirNotificacao(n);
+                      }
+                    }}
                     className={cn(
-                      "relative flex items-start gap-3 p-4 shadow-soft",
+                      "relative flex cursor-pointer items-start gap-3 p-4 shadow-soft transition-shadow hover:shadow-elevated focus:outline-none focus:ring-2 focus:ring-primary",
                       n.lida && "opacity-60",
                     )}
                   >
+
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
                       {isAg ? <CalendarClock className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                     </div>
