@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, Loader2, CalendarClock, X as XIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { Card } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AcaoAgendamentoButtons } from "@/components/AcaoAgendamentoButtons";
 import { cn } from "@/lib/utils";
+import { resolveNotifLink } from "@/lib/notifLinks";
+
 
 type NotifTipo =
   | "agendamento_novo_loja"
