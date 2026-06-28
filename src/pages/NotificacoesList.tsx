@@ -70,10 +70,30 @@ function tipoBadge(tipo: NotifTipo | null): { label: string; tone: string } | nu
 }
 
 export default function NotificacoesList() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const isLoja = (profile?.tipo_usuario ?? "").toLowerCase() === "loja";
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [verLidas, setVerLidas] = useState(false);
+
+  async function abrirNotificacao(n: Notif) {
+    if (!n.lida) {
+      void supabase.from("notificacoes").update({ lida: true }).eq("id", n.id);
+      setItems((prev) =>
+        verLidas
+          ? prev.map((x) => (x.id === n.id ? { ...x, lida: true } : x))
+          : prev.filter((x) => x.id !== n.id),
+      );
+    }
+    const url = resolveNotifLink(
+      { tipo: n.tipo, referencia_id: n.referencia_id, titulo: n.titulo, mensagem: n.mensagem },
+      isLoja,
+    );
+    if (url && url !== "/notificacoes") navigate(url);
+  }
+
+
 
   async function load() {
     if (!user) return;
