@@ -617,6 +617,10 @@ export default function LojaNovaDemanda() {
 
   async function enviarBoleto() {
     if (!fluxoAtivo || !consultaCpfSelecionada || !cpfsAprovados) return;
+    if (precisaEscolherLoja) {
+      toast.error("Selecione em nome de qual loja você está falando.");
+      return;
+    }
     const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
     if (!sel) {
       toast.error("CPF aprovado não encontrado");
