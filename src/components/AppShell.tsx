@@ -140,6 +140,7 @@ function AppShellInner() {
                   >
                     <Icon className="h-5 w-5" />
                     {badge === "messages" && <RailBadge count={unread} />}
+                    {badge === "pins" && <RailBadge count={pinsPendentes} />}
                   </NavLink>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="font-medium">
@@ -202,6 +203,7 @@ function AppShellInner() {
                     <span className="relative">
                       <Icon className="h-5 w-5" />
                       {badge === "messages" && <MobileBadge count={unread} />}
+                      {badge === "pins" && <MobileBadge count={pinsPendentes} />}
                     </span>
                     <span className="max-w-full truncate">{label}</span>
                   </NavLink>
