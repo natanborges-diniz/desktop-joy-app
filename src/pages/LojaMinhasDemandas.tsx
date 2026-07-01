@@ -198,7 +198,7 @@ export default function LojaMinhasDemandas() {
           </Button>
         </div>
         <p className="pb-3 text-sm text-white/80">
-          {lojaNome ? `Loja: ${lojaNome}` : "—"}
+          {lojaSelecionada ? `Loja: ${lojaSelecionada}` : lojasFiltro.length > 1 ? `Todas as lojas (${lojasFiltro.length})` : "—"}
         </p>
       </header>
 
