@@ -294,7 +294,7 @@ export default function LojaAgenda() {
               Apenas usuários do tipo <strong>loja</strong> ou <strong>colaborador</strong> podem
               ver a agenda.
             </p>
-          ) : !lojaNome ? (
+          ) : lojasQuery.length === 0 ? (
             <p className="mt-10 text-center text-sm text-muted-foreground">
               Loja não identificada para o seu perfil.
             </p>
