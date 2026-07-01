@@ -88,12 +88,6 @@ function timeAgo(iso: string | null | undefined) {
   return `há ${dias} d`;
 }
 
-function formatDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
 
 function BuscarOS() {
   const { lojaNome } = useLojaContext();
