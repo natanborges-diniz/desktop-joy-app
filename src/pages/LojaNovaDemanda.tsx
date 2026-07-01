@@ -21,6 +21,8 @@ import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
 import { useAuth } from "@/auth/auth-context";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useLojasAtivas } from "@/hooks/useLojasAtivas";
+import { useFiltroLoja } from "@/context/FiltroLojaContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
