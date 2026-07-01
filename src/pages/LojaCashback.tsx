@@ -4,6 +4,8 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useFiltroLoja } from "@/context/FiltroLojaContext";
+import { useCashbackLojaPayload } from "@/hooks/useCashbackLojaPayload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -75,6 +77,8 @@ async function invokeCashback<T>(body: Record<string, unknown>): Promise<T> {
 
 export default function LojaCashback() {
   const { lojaNome } = useLojaContext();
+  const { lojaSelecionada, lojasDoUsuario } = useFiltroLoja();
+  const lojaAtiva = lojaSelecionada ?? (lojasDoUsuario.length <= 1 ? lojaNome : null);
 
   return (
     <div className="flex h-full flex-col">
@@ -83,7 +87,9 @@ export default function LojaCashback() {
           <Wallet className="h-5 w-5" />
           <h1 className="text-lg font-semibold md:text-xl">Cashback</h1>
         </div>
-        <p className="pb-3 text-sm text-white/80">{lojaNome ? `Loja: ${lojaNome}` : "—"}</p>
+        <p className="pb-3 text-sm text-white/80">
+          {lojaAtiva ? `Loja: ${lojaAtiva}` : lojasDoUsuario.length > 1 ? "Todas as lojas" : "Selecione uma loja"}
+        </p>
       </header>
 
       <div className="flex-1 overflow-y-auto scroll-thin p-4">
@@ -109,6 +115,7 @@ export default function LojaCashback() {
 /* ───────────────────────────────── Consultar ───────────────────────────────── */
 
 function ConsultarTab() {
+  const lojaPayload = useCashbackLojaPayload();
   const [cpf, setCpf] = useState("");
   const [telefone, setTelefone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -123,7 +130,7 @@ function ConsultarTab() {
     setLoading(true);
     setResp(null);
     try {
-      const data = await invokeCashback<ConsultaResp>({ action: "consultar", ...body });
+      const data = await invokeCashback<ConsultaResp>({ action: "consultar", ...lojaPayload, ...body });
       setResp(data);
     } catch (e: any) {
       toast.error(e?.message ?? "Falha ao consultar.");
@@ -224,6 +231,7 @@ function ResultadoConsulta({ resp }: { resp: ConsultaResp }) {
 type Passo = 1 | 2 | 3 | 4;
 
 function RegistrarTab() {
+  const lojaPayload = useCashbackLojaPayload();
   const [passo, setPasso] = useState<Passo>(1);
 
   // passo 1
@@ -274,7 +282,7 @@ function RegistrarTab() {
     }
     setConsultando(true);
     try {
-      const data = await invokeCashback<ConsultaResp>({ action: "consultar", ...body });
+      const data = await invokeCashback<ConsultaResp>({ action: "consultar", ...lojaPayload, ...body });
       if (data.status === "nao_encontrado") {
         // cliente novo
         if (!nome.trim()) {
@@ -326,6 +334,7 @@ function RegistrarTab() {
     try {
       const data = await invokeCashback<RegistrarResp>({
         action: "registrar",
+        ...lojaPayload,
         ...body,
         nome: nome.trim() || undefined,
         numero_venda: numeroVenda.trim(),

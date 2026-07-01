@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { KeyRound, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
+import { KeyRound, Loader2, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { usePinsPendentes, type InscricaoPendente } from "@/hooks/usePinsPendentes";
+import { useCashbackLojaPayload } from "@/hooks/useCashbackLojaPayload";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,8 @@ async function invokeCashback(body: Record<string, unknown>) {
 }
 
 export default function LojaValidarPin() {
-  const { items, loading, count, reload } = usePinsPendentes();
+  const { items, loading, count, reload, error } = usePinsPendentes();
+  const lojaPayload = useCashbackLojaPayload();
 
   return (
     <div className="flex h-full flex-col">
@@ -48,6 +50,15 @@ export default function LojaValidarPin() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           )}
+          {!loading && error && (
+            <Card className="flex items-start gap-3 p-4 text-sm shadow-soft">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              <div>
+                <div className="font-medium text-foreground">Falha ao carregar PINs</div>
+                <div className="mt-1 text-muted-foreground">{error}</div>
+              </div>
+            </Card>
+          )}
           {!loading && items.length === 0 && (
             <Card className="p-6 text-center text-sm text-muted-foreground shadow-soft">
               <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-primary" />
@@ -55,7 +66,7 @@ export default function LojaValidarPin() {
             </Card>
           )}
           {items.map((it) => (
-            <PinCard key={it.id} item={it} onDone={reload} />
+            <PinCard key={it.id} item={it} onDone={reload} lojaPayload={lojaPayload} />
           ))}
         </div>
       </div>
@@ -63,7 +74,15 @@ export default function LojaValidarPin() {
   );
 }
 
-function PinCard({ item, onDone }: { item: InscricaoPendente; onDone: () => void }) {
+function PinCard({
+  item,
+  onDone,
+  lojaPayload,
+}: {
+  item: InscricaoPendente;
+  onDone: () => void;
+  lojaPayload: Record<string, unknown>;
+}) {
   const [pin, setPin] = useState("");
   const [confirmando, setConfirmando] = useState(false);
   const [reenviando, setReenviando] = useState(false);
@@ -78,6 +97,7 @@ function PinCard({ item, onDone }: { item: InscricaoPendente; onDone: () => void
     try {
       const data = await invokeCashback({
         action: "validar_pin",
+        ...lojaPayload,
         inscricao_id: item.id,
         pin,
       });
@@ -97,7 +117,7 @@ function PinCard({ item, onDone }: { item: InscricaoPendente; onDone: () => void
   async function reenviar() {
     setReenviando(true);
     try {
-      const data = await invokeCashback({ action: "reenviar_pin", inscricao_id: item.id });
+      const data = await invokeCashback({ action: "reenviar_pin", ...lojaPayload, inscricao_id: item.id });
       if (data?.status === "ok" || data?.ok === true || data?.enviado === true) {
         toast.success("PIN reenviado ao cliente.");
       } else {
@@ -117,8 +137,14 @@ function PinCard({ item, onDone }: { item: InscricaoPendente; onDone: () => void
           <div className="truncate text-base font-semibold text-foreground">
             {item.contato_nome ?? "Cliente"}
           </div>
+          {item.loja_nome && (
+            <div className="truncate text-xs font-medium text-primary">{item.loja_nome}</div>
+          )}
           {item.contato_telefone && (
             <div className="text-xs text-muted-foreground">{item.contato_telefone}</div>
+          )}
+          {!item.loja_nome && item.loja_id && (
+            <div className="truncate text-[11px] text-muted-foreground">Loja ID: {item.loja_id}</div>
           )}
         </div>
         <div className="text-right text-[11px] text-muted-foreground">{tempoDe(item.criado_em)}</div>
