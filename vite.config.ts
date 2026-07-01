@@ -1,16 +1,35 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
 import { componentTagger } from "lovable-tagger";
 
 // VAPID public key — pode ficar no código (é a chave pública de Web Push)
 const VAPID_PUBLIC_KEY =
   "BGi2gNRP8_4mYwoFYbrLgRWsnxq7QM7Klhywz-FmPQYwP86sVzoqYoUGozT-8qjFrkPVAA8rfvmuVo020HyglYI";
 
+// Build ID único por build → força novo Service Worker + banner de update.
+const BUILD_ID = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+
+// Injeta BUILD_ID no sw.js durante o build (substitui __BUILD_ID__).
+function stampServiceWorker(): Plugin {
+  return {
+    name: "stamp-service-worker",
+    apply: "build",
+    generateBundle() {
+      const swPath = path.resolve(__dirname, "public/sw.js");
+      if (!fs.existsSync(swPath)) return;
+      const source = fs.readFileSync(swPath, "utf8").replace(/__BUILD_ID__/g, BUILD_ID);
+      this.emitFile({ type: "asset", fileName: "sw.js", source });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
     "import.meta.env.VITE_VAPID_PUBLIC_KEY": JSON.stringify(VAPID_PUBLIC_KEY),
+    "import.meta.env.VITE_BUILD_ID": JSON.stringify(BUILD_ID),
   },
   server: {
     host: "::",
@@ -21,6 +40,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
+    stampServiceWorker(),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
