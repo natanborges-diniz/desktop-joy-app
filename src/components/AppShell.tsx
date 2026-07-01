@@ -59,6 +59,14 @@ function RailBadge({ count }: { count: number }) {
 }
 
 export default function AppShell() {
+  return (
+    <FiltroLojaProvider>
+      <AppShellInner />
+    </FiltroLojaProvider>
+  );
+}
+
+function AppShellInner() {
   const location = useLocation();
   const unread = useUnreadCount();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -67,6 +75,7 @@ export default function AppShell() {
   useAppBadge(unread);
   useNotificacoesRealtime();
   const { acessoTotal, podeMenuLoja, podeSupervisao, podeChat1a1, podeChatGrupo } = useLojaContext();
+  const { lojasDoUsuario, loading: filtroLoading } = useFiltroLoja();
 
   const isHome = location.pathname === "/";
   const isConversaRoute =
