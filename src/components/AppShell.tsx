@@ -73,6 +73,7 @@ function AppShellInner() {
   const location = useLocation();
   const unread = useUnreadCount();
   const { count: pinsPendentes } = usePinsPendentes();
+  const { count: osPendentes } = useOsRecebidasPendentes();
   const [moreOpen, setMoreOpen] = useState(false);
 
   useDocumentTitleBadge(unread);
