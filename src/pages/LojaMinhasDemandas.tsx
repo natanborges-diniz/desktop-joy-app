@@ -100,7 +100,8 @@ export default function LojaMinhasDemandas() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
-  const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { lojasFiltro, lojaSelecionada } = useFiltroLoja();
 
   const [items, setItems] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,18 +110,24 @@ export default function LojaMinhasDemandas() {
 
 
   async function load() {
-    if (!lojaNome) {
+    if (!lojasFiltro.length) {
       setItems([]);
       setLoading(false);
       return;
     }
     setLoading(true);
+    const orExpr = lojasFiltro
+      .map((l) => {
+        const safe = l.replace(/,/g, "\\,");
+        return `metadata->>alias_loja.eq.${safe},metadata->>loja_nome.eq.${safe}`;
+      })
+      .join(",");
     const { data } = await supabase
       .from("solicitacoes")
       .select(
         "id, protocolo, assunto, status, created_at, pipeline_coluna_id, metadata, pipeline_colunas(nome,cor)",
       )
-      .eq("metadata->>alias_loja", lojaNome)
+      .or(orExpr)
       .order("created_at", { ascending: false })
       .limit(100);
     setItems((data ?? []) as Solicitacao[]);
@@ -129,7 +136,8 @@ export default function LojaMinhasDemandas() {
 
   useEffect(() => {
     void load();
-  }, [lojaNome]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lojasFiltro.join("|")]);
 
   useEffect(() => {
     void carregarMaxCiclos().then(setMaxCiclos);
@@ -160,9 +168,9 @@ export default function LojaMinhasDemandas() {
 
   // realtime na lista
   useEffect(() => {
-    if (!lojaNome) return;
+    if (!lojasFiltro.length) return;
     const ch = supabase
-      .channel(`lista-sol-${lojaNome}`)
+      .channel(`lista-sol-${lojaSelecionada ?? "todas"}-${lojasFiltro.length}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "solicitacoes" },
@@ -172,7 +180,8 @@ export default function LojaMinhasDemandas() {
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [lojaNome]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lojasFiltro.join("|")]);
 
   return (
     <div className="flex h-full flex-col">
