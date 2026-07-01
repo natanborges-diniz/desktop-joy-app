@@ -143,6 +143,7 @@ function AppShellInner() {
                     <Icon className="h-5 w-5" />
                     {badge === "messages" && <RailBadge count={unread} />}
                     {badge === "pins" && <RailBadge count={pinsPendentes} />}
+                    {badge === "os" && <RailBadge count={osPendentes} />}
                   </NavLink>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="font-medium">
