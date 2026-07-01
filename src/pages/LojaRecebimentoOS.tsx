@@ -29,7 +29,8 @@ type PreviewResponse = {
 
 type HistoricoRow = {
   id: string;
-  numero_os: string | null;
+  os_numero: string | null;
+  numero_os?: string | null;
   cliente_nome: string | null;
   produto: string | null;
   loja_nome: string | null;
@@ -256,7 +257,7 @@ function HistoricoCard({ row }: { row: HistoricoRow }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base">OS {row.numero_os ?? "—"}</CardTitle>
+          <CardTitle className="text-base">OS {row.os_numero ?? row.numero_os ?? "—"}</CardTitle>
           {row.loja_nome && (
             <Badge variant="outline" className="shrink-0">
               {row.loja_nome}
