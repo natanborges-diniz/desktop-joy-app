@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, MessageSquare, MoreHorizontal, PackageCheck, ShieldCheck, User, Wallet } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, FilePlus2, Inbox, KeyRound, MessageSquare, MoreHorizontal, PackageCheck, ShieldCheck, User, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
+import { usePinsPendentes } from "@/hooks/usePinsPendentes";
 
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
@@ -23,7 +24,7 @@ type NavItem = {
   label: string;
   icon: typeof MessageSquare;
   exact: boolean;
-  badge: "messages" | null;
+  badge: "messages" | "pins" | null;
   modulo: Modulo;
 };
 
@@ -37,6 +38,7 @@ const baseItems: NavItem[] = [
   { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
   { to: "/recebimento-os", label: "Recebimento", icon: PackageCheck, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/cashback", label: "Cashback", icon: Wallet, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/cashback/validar-pin", label: "Validar PIN", icon: KeyRound, exact: false, badge: "pins", modulo: "menu_loja" },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
 ];
 
@@ -69,6 +71,7 @@ export default function AppShell() {
 function AppShellInner() {
   const location = useLocation();
   const unread = useUnreadCount();
+  const { count: pinsPendentes } = usePinsPendentes();
   const [moreOpen, setMoreOpen] = useState(false);
 
   useDocumentTitleBadge(unread);
