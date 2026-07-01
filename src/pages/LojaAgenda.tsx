@@ -252,7 +252,14 @@ export default function LojaAgenda() {
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold md:text-lg">Agenda</h1>
-            {lojaNome && <p className="truncate text-xs text-white/80">{lojaNome}</p>}
+            {(() => {
+              const sub = lojaSelecionada
+                ? lojaSelecionada
+                : lojasDoUsuario.length > 1
+                  ? `Todas (${lojasDoUsuario.length} lojas)`
+                  : lojaCtx;
+              return sub ? <p className="truncate text-xs text-white/80">{sub}</p> : null;
+            })()}
           </div>
           <div className="flex items-center gap-1">
             <Button
