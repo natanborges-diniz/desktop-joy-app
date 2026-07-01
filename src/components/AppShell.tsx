@@ -159,6 +159,12 @@ function AppShellInner() {
           <UpdateAvailableBanner />
           <PushOnboardingBanner />
           <PendenciasBanner />
+          <LojaFilterBarSlot pathname={location.pathname} />
+          {!filtroLoading && podeMenuLoja && lojasDoUsuario.length === 0 && showsLojaEmpty(location.pathname) && (
+            <div className="mx-3 mt-3 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+              Sem acesso a lojas — fale com um admin.
+            </div>
+          )}
           <main className="min-h-0 flex-1 overflow-hidden">
             {isHome ? (
               <>
