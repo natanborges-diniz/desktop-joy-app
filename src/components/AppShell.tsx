@@ -14,6 +14,8 @@ import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { FiltroLojaProvider, useFiltroLoja } from "@/context/FiltroLojaContext";
+import { LojaFilterBar } from "@/components/LojaFilterBar";
 
 type Modulo = "menu_loja" | "demandas_minhas_lojas" | "chat_1a1" | null;
 type NavItem = {
