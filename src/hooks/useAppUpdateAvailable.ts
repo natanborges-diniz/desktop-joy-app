@@ -23,6 +23,12 @@ export function useAppUpdateAvailable(): boolean {
       if (!cancelled) setUpdateAvailable(true);
     }
 
+    // Evento disparado pelo poll de /version.json (funciona mesmo se o SW
+    // estiver travado por cache HTTP no iOS).
+    window.addEventListener("lovable:update-available", markAvailable);
+
+
+
     // Se já há um SW instalado e ativo, qualquer controllerchange depois disso = update.
     const hadController = !!navigator.serviceWorker.controller;
 
