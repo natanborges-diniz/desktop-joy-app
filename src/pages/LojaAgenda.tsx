@@ -27,6 +27,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useFiltroLoja } from "@/context/FiltroLojaContext";
 import { showLocalNotification } from "@/lib/localNotify";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -114,7 +115,19 @@ function formatBRL(n: number | null | undefined): string {
 
 export default function LojaAgenda() {
   const navigate = useNavigate();
-  const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome: lojaCtx, podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaSelecionada, lojasFiltro, lojasDoUsuario } = useFiltroLoja();
+  // Fonte da verdade da loja ativa na Agenda: chip do filtro > loja do contexto legado.
+  // Quando o usuário multi-loja está em "Todas", mostramos todas as lojas dele combinadas.
+  const lojaNome = lojaSelecionada ?? lojaCtx;
+  const lojasQuery: string[] = lojaSelecionada
+    ? [lojaSelecionada]
+    : lojasDoUsuario.length > 0
+      ? lojasFiltro
+      : lojaCtx
+        ? [lojaCtx]
+        : [];
+  const lojasKey = lojasQuery.join("|");
   const [cursor, setCursor] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [view, setView] = useState<"month" | "list">("month");
@@ -129,7 +142,7 @@ export default function LojaAgenda() {
   const intervalEnd = useMemo(() => endOfWeek(endOfMonth(cursor), { locale: ptBR }), [cursor]);
 
   async function load() {
-    if (!lojaNome) {
+    if (lojasQuery.length === 0) {
       setItems([]);
       setLoading(false);
       return;
@@ -145,7 +158,7 @@ export default function LojaAgenda() {
       .select(
         "id,contato_id,loja_nome,data_horario,status,observacoes,lembrete_enviado,loja_confirmou_presenca,valor_orcamento,valor_venda,numero_venda,numeros_os,metadata,contato:contatos(nome,telefone)",
       )
-      .eq("loja_nome", lojaNome)
+      .in("loja_nome", lojasQuery)
       .gte("data_horario", fromIso)
       .lte("data_horario", toIso)
       .order("data_horario", { ascending: true });
@@ -156,20 +169,24 @@ export default function LojaAgenda() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lojaNome, cursor, view]);
+  }, [lojasKey, cursor, view]);
 
   // realtime
   useEffect(() => {
-    if (!lojaNome) return;
+    if (lojasQuery.length === 0) return;
+    const filter =
+      lojasQuery.length === 1
+        ? `loja_nome=eq.${lojasQuery[0]}`
+        : `loja_nome=in.(${lojasQuery.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
-      .channel(`agenda-${lojaNome}`)
+      .channel(`agenda-${lojasKey}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "agendamentos",
-          filter: `loja_nome=eq.${lojaNome}`,
+          filter,
         },
         (payload) => {
           void load();
@@ -201,7 +218,7 @@ export default function LojaAgenda() {
       void supabase.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lojaNome]);
+  }, [lojasKey]);
 
   const days = useMemo(
     () => eachDayOfInterval({ start: intervalStart, end: intervalEnd }),
