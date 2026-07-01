@@ -37,7 +37,7 @@ const baseItems: NavItem[] = [
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null, modulo: null },
   { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
-  { to: "/recebimento-os", label: "Recebimento", icon: PackageCheck, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/recebimento-os", label: "Recebimento", icon: PackageCheck, exact: false, badge: "os", modulo: "menu_loja" },
   { to: "/cashback", label: "Cashback", icon: Wallet, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/cashback/validar-pin", label: "Validar PIN", icon: KeyRound, exact: false, badge: "pins", modulo: "menu_loja" },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
