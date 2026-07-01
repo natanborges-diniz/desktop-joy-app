@@ -72,9 +72,11 @@ export function useAppUpdateAvailable(): boolean {
 
     return () => {
       cancelled = true;
+      window.removeEventListener("lovable:update-available", markAvailable);
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       window.clearInterval(intervalId);
     };
+
   }, []);
 
   return updateAvailable;
