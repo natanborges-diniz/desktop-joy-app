@@ -80,6 +80,7 @@ function AppShellInner() {
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
   useNotificacoesRealtime();
+  useBuildVersionCheck();
   const { acessoTotal, podeMenuLoja, podeSupervisao, podeChat1a1, podeChatGrupo } = useLojaContext();
   const { lojasDoUsuario, loading: filtroLoading } = useFiltroLoja();
 
