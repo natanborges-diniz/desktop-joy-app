@@ -196,6 +196,7 @@ function AppShellInner() {
                       <Icon className="h-5 w-5" />
                       {badge === "messages" && <MobileBadge count={unread} />}
                       {badge === "pins" && <MobileBadge count={pinsPendentes} />}
+                      {badge === "os" && <MobileBadge count={osPendentes} />}
                     </span>
                     <span className="max-w-full truncate">{label}</span>
                   </NavLink>
