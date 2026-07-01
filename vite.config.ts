@@ -11,19 +11,23 @@ const VAPID_PUBLIC_KEY =
 // Build ID único por build → força novo Service Worker + banner de update.
 const BUILD_ID = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
 
-// Injeta BUILD_ID no sw.js durante o build (substitui __BUILD_ID__).
+// Injeta BUILD_ID no sw.js durante o build (substitui __BUILD_ID__),
+// sobrescrevendo o arquivo já copiado de /public para /dist.
 function stampServiceWorker(): Plugin {
   return {
     name: "stamp-service-worker",
     apply: "build",
-    generateBundle() {
-      const swPath = path.resolve(__dirname, "public/sw.js");
-      if (!fs.existsSync(swPath)) return;
-      const source = fs.readFileSync(swPath, "utf8").replace(/__BUILD_ID__/g, BUILD_ID);
-      this.emitFile({ type: "asset", fileName: "sw.js", source });
+    closeBundle() {
+      const srcPath = path.resolve(__dirname, "public/sw.js");
+      const outPath = path.resolve(__dirname, "dist/sw.js");
+      if (!fs.existsSync(srcPath)) return;
+      const source = fs.readFileSync(srcPath, "utf8").replace(/__BUILD_ID__/g, BUILD_ID);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, source);
     },
   };
 }
+
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
