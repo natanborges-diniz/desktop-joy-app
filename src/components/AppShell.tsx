@@ -8,6 +8,7 @@ import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { usePinsPendentes } from "@/hooks/usePinsPendentes";
+import { useOsRecebidasPendentes } from "@/hooks/useOsRecebidasPendentes";
 
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
@@ -24,7 +25,7 @@ type NavItem = {
   label: string;
   icon: typeof MessageSquare;
   exact: boolean;
-  badge: "messages" | "pins" | null;
+  badge: "messages" | "pins" | "os" | null;
   modulo: Modulo;
 };
 
@@ -36,7 +37,7 @@ const baseItems: NavItem[] = [
   { to: "/notificacoes", label: "Avisos", icon: Bell, exact: false, badge: null, modulo: null },
   { to: "/agenda", label: "Agenda", icon: CalendarDays, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/demandas-lojas", label: "Minhas lojas", icon: ShieldCheck, exact: false, badge: null, modulo: "demandas_minhas_lojas" },
-  { to: "/recebimento-os", label: "Recebimento", icon: PackageCheck, exact: false, badge: null, modulo: "menu_loja" },
+  { to: "/recebimento-os", label: "Recebimento", icon: PackageCheck, exact: false, badge: "os", modulo: "menu_loja" },
   { to: "/cashback", label: "Cashback", icon: Wallet, exact: false, badge: null, modulo: "menu_loja" },
   { to: "/cashback/validar-pin", label: "Validar PIN", icon: KeyRound, exact: false, badge: "pins", modulo: "menu_loja" },
   { to: "/perfil", label: "Perfil", icon: User, exact: false, badge: null, modulo: null },
@@ -72,6 +73,7 @@ function AppShellInner() {
   const location = useLocation();
   const unread = useUnreadCount();
   const { count: pinsPendentes } = usePinsPendentes();
+  const { count: osPendentes } = useOsRecebidasPendentes();
   const [moreOpen, setMoreOpen] = useState(false);
 
   useDocumentTitleBadge(unread);
@@ -141,6 +143,7 @@ function AppShellInner() {
                     <Icon className="h-5 w-5" />
                     {badge === "messages" && <RailBadge count={unread} />}
                     {badge === "pins" && <RailBadge count={pinsPendentes} />}
+                    {badge === "os" && <RailBadge count={osPendentes} />}
                   </NavLink>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="font-medium">
@@ -193,6 +196,7 @@ function AppShellInner() {
                       <Icon className="h-5 w-5" />
                       {badge === "messages" && <MobileBadge count={unread} />}
                       {badge === "pins" && <MobileBadge count={pinsPendentes} />}
+                      {badge === "os" && <MobileBadge count={osPendentes} />}
                     </span>
                     <span className="max-w-full truncate">{label}</span>
                   </NavLink>
