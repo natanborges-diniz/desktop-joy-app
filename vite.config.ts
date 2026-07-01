@@ -11,8 +11,8 @@ const VAPID_PUBLIC_KEY =
 // Build ID único por build → força novo Service Worker + banner de update.
 const BUILD_ID = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
 
-// Injeta BUILD_ID no sw.js durante o build (substitui __BUILD_ID__),
-// sobrescrevendo o arquivo já copiado de /public para /dist.
+// Injeta BUILD_ID no sw.js e gera version.json a cada build,
+// sobrescrevendo os arquivos já copiados de /public para /dist.
 function stampServiceWorker(): Plugin {
   return {
     name: "stamp-service-worker",
@@ -20,13 +20,19 @@ function stampServiceWorker(): Plugin {
     closeBundle() {
       const srcPath = path.resolve(__dirname, "public/sw.js");
       const outPath = path.resolve(__dirname, "dist/sw.js");
-      if (!fs.existsSync(srcPath)) return;
-      const source = fs.readFileSync(srcPath, "utf8").replace(/__BUILD_ID__/g, BUILD_ID);
-      fs.mkdirSync(path.dirname(outPath), { recursive: true });
-      fs.writeFileSync(outPath, source);
+      if (fs.existsSync(srcPath)) {
+        const source = fs.readFileSync(srcPath, "utf8").replace(/__BUILD_ID__/g, BUILD_ID);
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        fs.writeFileSync(outPath, source);
+      }
+      // version.json — usado pelo app pra detectar updates mesmo se sw.js
+      // estiver cacheado pelo iOS.
+      const versionPath = path.resolve(__dirname, "dist/version.json");
+      fs.writeFileSync(versionPath, JSON.stringify({ buildId: BUILD_ID }));
     },
   };
 }
+
 
 
 // https://vitejs.dev/config/

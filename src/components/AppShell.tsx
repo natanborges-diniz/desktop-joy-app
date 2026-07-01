@@ -6,6 +6,7 @@ import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useBuildVersionCheck } from "@/hooks/useBuildVersionCheck";
 import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { usePinsPendentes } from "@/hooks/usePinsPendentes";
 import { useOsRecebidasPendentes } from "@/hooks/useOsRecebidasPendentes";
@@ -79,6 +80,7 @@ function AppShellInner() {
   useDocumentTitleBadge(unread);
   useAppBadge(unread);
   useNotificacoesRealtime();
+  useBuildVersionCheck();
   const { acessoTotal, podeMenuLoja, podeSupervisao, podeChat1a1, podeChatGrupo } = useLojaContext();
   const { lojasDoUsuario, loading: filtroLoading } = useFiltroLoja();
 
