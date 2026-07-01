@@ -390,7 +390,12 @@ export default function LojaAgenda() {
                 ) : (
                   <div className="space-y-2">
                     {dayItems.map((a) => (
-                      <CardAgendamento key={a.id} a={a} onOpen={() => setAberto(a)} />
+                      <CardAgendamento
+                        key={a.id}
+                        a={a}
+                        onOpen={() => setAberto(a)}
+                        mostrarLoja={!lojaSelecionada && lojasDoUsuario.length > 1}
+                      />
                     ))}
                   </div>
                 )}
@@ -408,7 +413,13 @@ export default function LojaAgenda() {
                 </p>
               ) : (
                 items.map((a) => (
-                  <CardAgendamento key={a.id} a={a} onOpen={() => setAberto(a)} mostrarData />
+                  <CardAgendamento
+                    key={a.id}
+                    a={a}
+                    onOpen={() => setAberto(a)}
+                    mostrarData
+                    mostrarLoja={!lojaSelecionada && lojasDoUsuario.length > 1}
+                  />
                 ))
               )}
             </div>
