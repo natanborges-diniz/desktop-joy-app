@@ -270,3 +270,17 @@ function ChatPlaceholder() {
     </div>
   );
 }
+
+// Rotas onde faz sentido oferecer o filtro de loja / aviso de "sem acesso a lojas".
+const LOJA_ROUTES = ["/demandas", "/minhas-demandas", "/agenda", "/recebimento-os", "/cashback", "/nova-demanda"];
+function isLojaRoute(pathname: string) {
+  return LOJA_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+function showsLojaEmpty(pathname: string) {
+  return isLojaRoute(pathname);
+}
+function LojaFilterBarSlot({ pathname }: { pathname: string }) {
+  if (!isLojaRoute(pathname)) return null;
+  return <LojaFilterBar />;
+}
+
