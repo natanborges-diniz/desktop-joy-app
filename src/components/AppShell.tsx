@@ -6,8 +6,8 @@ import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useDocumentTitleBadge } from "@/hooks/useDocumentTitleBadge";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { useLojaContext } from "@/hooks/useLojaContext";
-import { useNotificacoesRealtime } from "@/hooks/useNotificacoesRealtime";
 import { usePinsPendentes } from "@/hooks/usePinsPendentes";
+import { useOsRecebidasPendentes } from "@/hooks/useOsRecebidasPendentes";
 
 import { ConversasSidebar } from "@/components/ConversasSidebar";
 import { PendenciasBanner } from "@/components/PendenciasBanner";
