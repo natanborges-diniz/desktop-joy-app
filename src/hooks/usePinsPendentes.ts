@@ -61,7 +61,7 @@ export function usePinsPendentes() {
   useEffect(() => {
     if (!user) return;
     const ch = supabase
-      .channel(`regua-inscricao-pins-${user.id}`)
+      .channel(`regua-inscricao-pins-${user.id}-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "regua_inscricao" },
