@@ -539,10 +539,12 @@ function CardAgendamento({
   a,
   onOpen,
   mostrarData,
+  mostrarLoja,
 }: {
   a: Agendamento;
   onOpen: () => void;
   mostrarData?: boolean;
+  mostrarLoja?: boolean;
 }) {
   const dt = new Date(a.data_horario);
   return (
@@ -572,6 +574,9 @@ function CardAgendamento({
             {STATUS_LABEL[a.status] ?? a.status}
           </span>
         </div>
+        {mostrarLoja && a.loja_nome && (
+          <p className="truncate text-[11px] font-medium text-primary">{a.loja_nome}</p>
+        )}
         {(() => {
           const meta = a.metadata as { cliente_confirmou_at?: string } | null;
           const confirmadoAt = meta?.cliente_confirmou_at;
