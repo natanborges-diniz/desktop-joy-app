@@ -1,6 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, PackageCheck, CheckCircle2, Search, AlertTriangle } from "lucide-react";
+import {
+  Loader2,
+  PackageCheck,
+  CheckCircle2,
+  Search,
+  AlertTriangle,
+  Clock3,
+  Check,
+  Eye,
+  CalendarCheck,
+  XCircle,
+  Send,
+  RefreshCw,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useLojaContext } from "@/hooks/useLojaContext";
@@ -10,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type ProdutoItem = { tipo?: string | null; descricao?: string | null };
 type Preview = {
