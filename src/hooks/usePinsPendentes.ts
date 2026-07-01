@@ -131,7 +131,7 @@ export function usePinsPendentes() {
     // Se nao conseguimos resolver a loja_id -> nome (legado sem tabela/FK), nao
     // esconda o PIN pendente da loja: mostra como "loja nao mapeada" para o
     // operador poder validar em vez de ficar com a tela vazia.
-    return [...mapeados, ...rows.filter((r) => !r.loja_nome)];
+    return mapeados.length > 0 ? mapeados : rows.filter((r) => !r.loja_nome);
   }, [rows, lojaSelecionada]);
 
   const lojasSemMapeamento = useMemo(() => {
