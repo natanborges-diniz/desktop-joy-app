@@ -53,6 +53,24 @@ type HistoricoRow = {
   recebido_por_nome: string | null;
 };
 
+type WaStatus = "sent" | "delivered" | "read" | "failed" | "no_dispatch" | null;
+
+type HistoricoRow = {
+  id: string;
+  os_numero: string | null;
+  numero_os?: string | null;
+  cliente_nome: string | null;
+  produto: string | null;
+  loja_nome: string | null;
+  recebido_at: string | null;
+  recebido_por_nome: string | null;
+  notificado_cliente_at: string | null;
+  wa_status: WaStatus;
+  wa_status_at: string | null;
+  wa_status_reason: string | null;
+  agendamento_id: string | null;
+};
+
 function formatDateTime(iso: string | null | undefined) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -64,6 +82,20 @@ function formatDateTime(iso: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function timeAgo(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return "";
+  const diff = Date.now() - d;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const dias = Math.floor(h / 24);
+  return `há ${dias} d`;
 }
 
 function formatDate(iso: string | null | undefined) {
