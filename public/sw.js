@@ -1,6 +1,6 @@
 // Service worker mínimo para o InFoco Message.
 // SW_VERSION: bump esta string pra forçar reinstalação + limpeza total de cache.
-const SW_VERSION = "2026-06-27-auto-update";
+const SW_VERSION = "__BUILD_ID__";
 
 function isWorkboxCache(name) {
   return /(^|-)precache|(^|-)runtime|(^|-)workbox|(^|-)googleAnalytics/.test(name);
