@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -459,6 +459,14 @@ export default function LojaRecebimentoOS() {
   const [historico, setHistorico] = useState<HistoricoRow[]>([]);
   const [loadingHist, setLoadingHist] = useState(false);
 
+  // Atrium armazena loja_nome em MAIÚSCULAS.
+  // O filtro do app pode vir em Title Case ("Diniz Super Shopping"), então
+  // uppercase antes de comparar.
+  const lojasUpper = useMemo(
+    () => lojasFiltro.map((l) => l.toUpperCase()),
+    [lojasFiltro],
+  );
+
   const loadHistorico = useCallback(async () => {
     if (!user) return;
     setLoadingHist(true);
@@ -469,12 +477,15 @@ export default function LojaRecebimentoOS() {
       )
       .not("recebido_at", "is", null)
       .order("recebido_at", { ascending: false })
-      .limit(50);
-    if (lojasFiltro.length) q = q.in("loja_nome", lojasFiltro);
-    const { data } = await q;
+      .limit(100);
+    if (lojasUpper.length) q = q.in("loja_nome", lojasUpper);
+    const { data, error } = await q;
+    if (error) {
+      console.error("[recebimento-os] loadHistorico:", error);
+    }
     setHistorico(((data as any) ?? []) as HistoricoRow[]);
     setLoadingHist(false);
-  }, [user, lojasFiltro]);
+  }, [user, lojasUpper]);
 
   useEffect(() => {
     document.title = "Recebimento de OS";
@@ -487,8 +498,8 @@ export default function LojaRecebimentoOS() {
 
   // Realtime
   useEffect(() => {
-    if (!user || lojasFiltro.length === 0) return;
-    const filter = `loja_nome=in.(${lojasFiltro.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
+    if (!user || lojasUpper.length === 0) return;
+    const filter = `loja_nome=in.(${lojasUpper.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
       .channel(`os-recebidas-loja-${user.id}-${Date.now()}`)
       .on(
@@ -500,7 +511,8 @@ export default function LojaRecebimentoOS() {
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [user, lojasFiltro, loadHistorico]);
+  }, [user, lojasUpper, loadHistorico]);
+
 
   return (
     <div className="mx-auto h-full max-w-3xl overflow-y-auto px-4 py-4 md:py-6">

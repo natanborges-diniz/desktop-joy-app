@@ -65,6 +65,11 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       setBadges({});
       return;
     }
+    // Atrium armazena loja_nome em MAIÚSCULAS na os_recebimento_loja.
+    const lojasUpper = lojas.map((l) => l.toUpperCase());
+    const upperToOriginal = new Map<string, string>();
+    for (const l of lojas) upperToOriginal.set(l.toUpperCase(), l);
+
     const [demResp, osResp] = await Promise.all([
       supabase
         .from("demandas_loja")
@@ -76,7 +81,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       supabase
         .from("os_recebimento_loja" as any)
         .select("loja_nome")
-        .in("loja_nome", lojas)
+        .in("loja_nome", lojasUpper)
         .is("confirmado_at", null)
         .limit(1000),
     ]);
@@ -87,11 +92,14 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       if (n && map[n]) map[n].demandas += 1;
     }
     for (const r of ((osResp.data ?? []) as { loja_nome: string | null }[])) {
-      const n = r.loja_nome;
-      if (n && map[n]) map[n].os += 1;
+      const raw = r.loja_nome;
+      if (!raw) continue;
+      const orig = upperToOriginal.get(raw.toUpperCase());
+      if (orig && map[orig]) map[orig].os += 1;
     }
     setBadges(map);
   }, [user, lojas]);
+
 
   useEffect(() => {
     void recomputar();
@@ -100,6 +108,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || lojas.length === 0) return;
     const filter = `loja_nome=in.(${lojas.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
+    const filterUpper = `loja_nome=in.(${lojas.map((l) => `"${l.toUpperCase().replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
       .channel(`filtro-loja-badges-${user.id}`)
       .on(
@@ -109,7 +118,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "os_recebimento_loja", filter },
+        { event: "*", schema: "public", table: "os_recebimento_loja", filter: filterUpper },
         () => void recomputar(),
       )
       .subscribe();
@@ -117,6 +126,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       void supabase.removeChannel(ch);
     };
   }, [user, lojas, recomputar]);
+
 
   const totalDemandas = useMemo(
     () => Object.values(badges).reduce((s, b) => s + (b?.demandas ?? 0), 0),
