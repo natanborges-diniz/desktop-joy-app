@@ -567,6 +567,10 @@ export default function LojaNovaDemanda() {
 
   async function enviar() {
     if (!fluxoAtivo) return;
+    if (precisaEscolherLoja) {
+      toast.error("Selecione em nome de qual loja você está falando.");
+      return;
+    }
 
     setEnviando(true);
     const dadosEnvio: Record<string, string> = { ...dados };
