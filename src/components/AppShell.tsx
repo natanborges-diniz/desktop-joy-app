@@ -25,7 +25,7 @@ type NavItem = {
   label: string;
   icon: typeof MessageSquare;
   exact: boolean;
-  badge: "messages" | "pins" | null;
+  badge: "messages" | "pins" | "os" | null;
   modulo: Modulo;
 };
 
