@@ -29,7 +29,8 @@ type PreviewResponse = {
 
 type HistoricoRow = {
   id: string;
-  numero_os: string | null;
+  os_numero: string | null;
+  numero_os?: string | null;
   cliente_nome: string | null;
   produto: string | null;
   loja_nome: string | null;
