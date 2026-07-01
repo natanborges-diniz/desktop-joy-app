@@ -307,37 +307,153 @@ function BuscarOS() {
   );
 }
 
-function HistoricoCard({ row }: { row: HistoricoRow }) {
+const WA_BADGE: Record<
+  Exclude<WaStatus, null>,
+  { label: string; className: string }
+> = {
+  sent: { label: "Enviado", className: "bg-slate-500 text-white hover:bg-slate-500" },
+  delivered: { label: "Entregue", className: "bg-blue-500 text-white hover:bg-blue-500" },
+  read: { label: "Lido", className: "bg-emerald-500 text-white hover:bg-emerald-500" },
+  failed: { label: "Falhou", className: "bg-red-500 text-white hover:bg-red-500" },
+  no_dispatch: { label: "Não enviado", className: "bg-red-500 text-white hover:bg-red-500" },
+};
+
+function TrackLine({
+  icon: Icon,
+  label,
+  ts,
+  active,
+  tone = "muted",
+}: {
+  icon: typeof Clock3;
+  label: string;
+  ts?: string | null;
+  active: boolean;
+  tone?: "muted" | "slate" | "blue" | "emerald";
+}) {
+  const toneClass = !active
+    ? "text-muted-foreground/50"
+    : tone === "emerald"
+      ? "text-emerald-600"
+      : tone === "blue"
+        ? "text-blue-600"
+        : tone === "slate"
+          ? "text-slate-600"
+          : "text-foreground";
+  return (
+    <div className={cn("flex items-center gap-2 text-sm", toneClass)}>
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="font-medium">{label}</span>
+      {active && ts && <span className="text-xs text-muted-foreground">· {formatDateTime(ts)}</span>}
+    </div>
+  );
+}
+
+function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () => void }) {
+  const [resending, setResending] = useState(false);
+  const status = row.wa_status;
+  const badge = status ? WA_BADGE[status] : null;
+  const agendou = !!row.agendamento_id;
+  const falhou = status === "failed" || status === "no_dispatch";
+  const sentTs = row.notificado_cliente_at ?? (status === "sent" ? row.wa_status_at : null);
+  const deliveredTs = status === "delivered" || status === "read" ? row.wa_status_at : null;
+  const readTs = status === "read" ? row.wa_status_at : null;
+
+  async function reenviar() {
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("confirmar-recebimento-os", {
+        body: { action: "resend", os_numero: row.os_numero ?? row.numero_os, loja_nome: row.loja_nome },
+      });
+      if (error) throw error;
+      if (data && typeof data === "object" && (data as any).error) {
+        throw new Error(String((data as any).error));
+      }
+      toast.success("Aviso reenviado ao cliente.");
+      onChanged();
+    } catch (err: any) {
+      toast.error("Falha ao reenviar aviso", { description: err?.message ?? "Tente novamente." });
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base">OS {row.os_numero ?? row.numero_os ?? "—"}</CardTitle>
-          {row.loja_nome && (
-            <Badge variant="outline" className="shrink-0">
-              {row.loja_nome}
-            </Badge>
-          )}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <CardTitle className="text-base">
+              OS {row.os_numero ?? row.numero_os ?? "—"}
+              {row.cliente_nome ? <span className="text-muted-foreground"> · {row.cliente_nome}</span> : null}
+            </CardTitle>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {row.loja_nome ? <>{row.loja_nome} · </> : null}
+              {timeAgo(row.recebido_at)}
+            </div>
+          </div>
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {badge && <Badge className={cn("shrink-0", badge.className)}>{badge.label}</Badge>}
+            {agendou && (
+              <Badge variant="outline" className="border-emerald-500 text-emerald-700 dark:text-emerald-400">
+                Agendou
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-1 pt-0 text-sm">
-        <div>
-          <span className="text-muted-foreground">Cliente: </span>
-          <span className="text-foreground">{row.cliente_nome ?? "—"}</span>
+      <CardContent className="space-y-2 pt-0">
+        <div className="space-y-1 rounded-md border bg-muted/30 p-2.5">
+          <TrackLine icon={Send} label="Enviado" ts={sentTs} active={!!sentTs} tone="slate" />
+          <TrackLine
+            icon={Check}
+            label="Entregue"
+            ts={deliveredTs}
+            active={status === "delivered" || status === "read"}
+            tone="blue"
+          />
+          <TrackLine icon={Eye} label="Lido" ts={readTs} active={status === "read"} tone="emerald" />
+          <TrackLine
+            icon={CalendarCheck}
+            label="Agendou retirada"
+            active={agendou}
+            tone="emerald"
+          />
         </div>
-        {row.produto && (
-          <div>
-            <span className="text-muted-foreground">Produto: </span>
-            <span className="text-foreground">{row.produto}</span>
+
+        {falhou && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-foreground">Cliente NÃO foi avisado</div>
+              {row.wa_status_reason && (
+                <div className="mt-0.5 break-words text-xs text-muted-foreground">
+                  {row.wa_status_reason}
+                </div>
+              )}
+            </div>
           </div>
         )}
-        <div>
-          <span className="text-muted-foreground">Recebido em: </span>
-          <span className="text-foreground">{formatDate(row.recebido_at)}</span>
-          {row.recebido_por_nome && (
-            <span className="text-muted-foreground"> por {row.recebido_por_nome}</span>
-          )}
-        </div>
+
+        {(falhou || (status === "sent" && !readTs)) && (
+          <Button
+            variant={falhou ? "destructive" : "outline"}
+            size="sm"
+            className="w-full"
+            onClick={reenviar}
+            disabled={resending}
+          >
+            {resending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Reenviando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" /> Reenviar aviso
+              </>
+            )}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -349,12 +465,14 @@ export default function LojaRecebimentoOS() {
   const [historico, setHistorico] = useState<HistoricoRow[]>([]);
   const [loadingHist, setLoadingHist] = useState(false);
 
-  async function loadHistorico() {
+  const loadHistorico = useCallback(async () => {
     if (!user) return;
     setLoadingHist(true);
     let q = supabase
       .from("os_recebimento_loja" as any)
-      .select("*")
+      .select(
+        "id, os_numero, numero_os, cliente_nome, produto, loja_nome, recebido_at, recebido_por_nome, notificado_cliente_at, wa_status, wa_status_at, wa_status_reason, agendamento_id",
+      )
       .not("recebido_at", "is", null)
       .order("recebido_at", { ascending: false })
       .limit(50);
@@ -362,11 +480,33 @@ export default function LojaRecebimentoOS() {
     const { data } = await q;
     setHistorico(((data as any) ?? []) as HistoricoRow[]);
     setLoadingHist(false);
-  }
+  }, [user, lojasFiltro]);
 
   useEffect(() => {
     document.title = "Recebimento de OS";
   }, []);
+
+  // Recarrega quando o filtro muda (e há dados abertos)
+  useEffect(() => {
+    void loadHistorico();
+  }, [loadHistorico]);
+
+  // Realtime
+  useEffect(() => {
+    if (!user || lojasFiltro.length === 0) return;
+    const filter = `loja_nome=in.(${lojasFiltro.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
+    const ch = supabase
+      .channel(`os-recebidas-loja-${user.id}-${Date.now()}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "os_recebimento_loja", filter },
+        () => void loadHistorico(),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [user, lojasFiltro, loadHistorico]);
 
   return (
     <div className="mx-auto h-full max-w-3xl overflow-y-auto px-4 py-4 md:py-6">
@@ -382,12 +522,7 @@ export default function LojaRecebimentoOS() {
         </div>
       </header>
 
-      <Tabs
-        defaultValue="buscar"
-        onValueChange={(v) => {
-          if (v === "historico") void loadHistorico();
-        }}
-      >
+      <Tabs defaultValue="buscar">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="buscar">Buscar OS</TabsTrigger>
           <TabsTrigger value="historico">Já recebidas</TabsTrigger>
@@ -407,10 +542,11 @@ export default function LojaRecebimentoOS() {
               Nada por aqui ainda.
             </div>
           ) : (
-            historico.map((r) => <HistoricoCard key={r.id} row={r} />)
+            historico.map((r) => <HistoricoCard key={r.id} row={r} onChanged={loadHistorico} />)
           )}
         </TabsContent>
       </Tabs>
     </div>
   );
 }
+
