@@ -12,17 +12,18 @@ const QUATRO_HORAS_MS = 4 * 60 * 60 * 1000;
 export function useOsRecebidasPendentes() {
   const { user } = useAuth();
   const { lojasFiltro } = useFiltroLoja();
+  const lojasUpper = useMemo(() => lojasFiltro.map((l) => l.toUpperCase()), [lojasFiltro]);
   const [count, setCount] = useState(0);
 
   const recomputar = useCallback(async () => {
-    if (!user || lojasFiltro.length === 0) {
+    if (!user || lojasUpper.length === 0) {
       setCount(0);
       return;
     }
     const { data } = await supabase
       .from("os_recebimento_loja" as any)
       .select("wa_status, wa_status_at, recebido_at")
-      .in("loja_nome", lojasFiltro)
+      .in("loja_nome", lojasUpper)
       .not("recebido_at", "is", null)
       .limit(500);
     const rows = ((data as any[]) ?? []) as Array<{
@@ -43,15 +44,15 @@ export function useOsRecebidasPendentes() {
       }
     }
     setCount(n);
-  }, [user, lojasFiltro]);
+  }, [user, lojasUpper]);
 
   useEffect(() => {
     void recomputar();
   }, [recomputar]);
 
   useEffect(() => {
-    if (!user || lojasFiltro.length === 0) return;
-    const filter = `loja_nome=in.(${lojasFiltro.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
+    if (!user || lojasUpper.length === 0) return;
+    const filter = `loja_nome=in.(${lojasUpper.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
       .channel(`os-recebidas-pendentes-${user.id}-${Date.now()}`)
       .on(
@@ -63,7 +64,8 @@ export function useOsRecebidasPendentes() {
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [user, lojasFiltro, recomputar]);
+  }, [user, lojasUpper, recomputar]);
+
 
   // Também revalida periodicamente (o critério "sent >4h" avança com o tempo).
   useEffect(() => {
