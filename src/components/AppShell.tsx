@@ -170,18 +170,7 @@ function AppShellInner() {
             </div>
           )}
           <main className="min-h-0 flex-1 overflow-hidden">
-            {isHome ? (
-              <>
-                <div className="hidden h-full md:block">
-                  <ChatPlaceholder />
-                </div>
-                <div className="h-full md:hidden">
-                  <Outlet />
-                </div>
-              </>
-            ) : (
-              <Outlet />
-            )}
+            {isHome ? <HomeOutletLayout /> : <Outlet />}
           </main>
 
           {/* Bottom nav — mobile */}
@@ -256,6 +245,19 @@ function AppShellInner() {
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+function HomeOutletLayout() {
+  return (
+    <>
+      <div className="hidden h-full md:block">
+        <ChatPlaceholder />
+      </div>
+      <div className="h-full md:hidden">
+        <Outlet />
+      </div>
+    </>
   );
 }
 
