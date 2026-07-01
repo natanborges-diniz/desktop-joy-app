@@ -233,8 +233,23 @@ function validar(et: Etapa, raw: string): string | null {
 export default function LojaNovaDemanda() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lojaNome, codEmpresa, tipoUsuario, podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome: lojaNomeCtx, codEmpresa, tipoUsuario, podeMenuLoja, loading: ctxLoading } = useLojaContext();
   const { data: lojasAtivas = [] } = useLojasAtivas();
+  const { lojasDoUsuario, lojaSelecionada, setLojaSelecionada } = useFiltroLoja();
+
+  // Loja "em nome de quem" a demanda será aberta.
+  // - Usuário com 1 loja → carimba automático a partir do contexto.
+  // - Usuário com 2+ lojas → usa a escolha do filtro global; se não houver, força seleção.
+  const [lojaEscolhida, setLojaEscolhida] = useState<string | null>(lojaSelecionada ?? lojaNomeCtx ?? null);
+  useEffect(() => {
+    if (lojasDoUsuario.length <= 1) {
+      setLojaEscolhida(lojaNomeCtx ?? null);
+    } else {
+      setLojaEscolhida((prev) => prev ?? lojaSelecionada ?? null);
+    }
+  }, [lojaNomeCtx, lojaSelecionada, lojasDoUsuario]);
+  const lojaNome = lojaEscolhida;
+  const precisaEscolherLoja = lojasDoUsuario.length > 1 && !lojaEscolhida;
 
   const [opcoes, setOpcoes] = useState<MenuOpcao[]>([]);
   const [trilha, setTrilha] = useState<MenuOpcao[]>([]);
