@@ -4,6 +4,7 @@ import { Loader2, PackageCheck, CheckCircle2, Search, AlertTriangle } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useFiltroLoja } from "@/context/FiltroLojaContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,8 @@ function formatDate(iso: string | null | undefined) {
 
 function BuscarOS() {
   const { lojaNome } = useLojaContext();
+  const { lojaSelecionada, lojasDoUsuario } = useFiltroLoja();
+  const lojaAtiva = lojaSelecionada ?? lojaNome ?? null;
   const [osNumero, setOsNumero] = useState("");
   const [searching, setSearching] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -70,15 +73,31 @@ function BuscarOS() {
     e?.preventDefault();
     const numero = osNumero.trim();
     if (!numero) return;
+    if (lojasDoUsuario.length > 1 && !lojaSelecionada) {
+      toast.error("Selecione uma loja no filtro acima antes de buscar a OS.");
+      return;
+    }
     setSearching(true);
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("confirmar-recebimento-os", {
-        body: { action: "preview", os_numero: numero, loja_nome: lojaNome ?? null },
+        body: { action: "preview", os_numero: numero, loja_nome: lojaAtiva },
       });
       if (error) throw error;
       const resp = (data ?? {}) as PreviewResponse;
       if (resp.error) throw new Error(resp.error);
+      // Se a OS for de outra loja e o usuário tem multiplas lojas → bloquear
+      const lojaDaOS = resp.preview?.loja_nome_os ?? null;
+      if (
+        lojaAtiva &&
+        lojaDaOS &&
+        lojaDaOS !== lojaAtiva &&
+        !lojasDoUsuario.includes(lojaDaOS)
+      ) {
+        toast.error(`Esta OS pertence a ${lojaDaOS}, troque o filtro`);
+      } else if (lojaAtiva && lojaDaOS && lojaDaOS !== lojaAtiva) {
+        toast.warning(`Esta OS pertence a ${lojaDaOS}, troque o filtro`);
+      }
       setResult(resp);
       setLastQuery(numero);
     } catch (err: any) {
@@ -290,18 +309,21 @@ function HistoricoCard({ row }: { row: HistoricoRow }) {
 
 export default function LojaRecebimentoOS() {
   const { user } = useAuth();
+  const { lojasFiltro } = useFiltroLoja();
   const [historico, setHistorico] = useState<HistoricoRow[]>([]);
   const [loadingHist, setLoadingHist] = useState(false);
 
   async function loadHistorico() {
     if (!user) return;
     setLoadingHist(true);
-    const { data } = await supabase
+    let q = supabase
       .from("os_recebimento_loja" as any)
       .select("*")
       .not("recebido_at", "is", null)
       .order("recebido_at", { ascending: false })
       .limit(50);
+    if (lojasFiltro.length) q = q.in("loja_nome", lojasFiltro);
+    const { data } = await q;
     setHistorico(((data as any) ?? []) as HistoricoRow[]);
     setLoadingHist(false);
   }

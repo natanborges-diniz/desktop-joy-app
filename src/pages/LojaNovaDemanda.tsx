@@ -21,6 +21,8 @@ import { normalizarAnexo, descreverErroUpload } from "@/lib/anexos";
 import { useAuth } from "@/auth/auth-context";
 import { useLojaContext } from "@/hooks/useLojaContext";
 import { useLojasAtivas } from "@/hooks/useLojasAtivas";
+import { useFiltroLoja } from "@/context/FiltroLojaContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -231,8 +233,23 @@ function validar(et: Etapa, raw: string): string | null {
 export default function LojaNovaDemanda() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lojaNome, codEmpresa, tipoUsuario, podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { lojaNome: lojaNomeCtx, codEmpresa, tipoUsuario, podeMenuLoja, loading: ctxLoading } = useLojaContext();
   const { data: lojasAtivas = [] } = useLojasAtivas();
+  const { lojasDoUsuario, lojaSelecionada, setLojaSelecionada } = useFiltroLoja();
+
+  // Loja "em nome de quem" a demanda será aberta.
+  // - Usuário com 1 loja → carimba automático a partir do contexto.
+  // - Usuário com 2+ lojas → usa a escolha do filtro global; se não houver, força seleção.
+  const [lojaEscolhida, setLojaEscolhida] = useState<string | null>(lojaSelecionada ?? lojaNomeCtx ?? null);
+  useEffect(() => {
+    if (lojasDoUsuario.length <= 1) {
+      setLojaEscolhida(lojaNomeCtx ?? null);
+    } else {
+      setLojaEscolhida((prev) => prev ?? lojaSelecionada ?? null);
+    }
+  }, [lojaNomeCtx, lojaSelecionada, lojasDoUsuario]);
+  const lojaNome = lojaEscolhida;
+  const precisaEscolherLoja = lojasDoUsuario.length > 1 && !lojaEscolhida;
 
   const [opcoes, setOpcoes] = useState<MenuOpcao[]>([]);
   const [trilha, setTrilha] = useState<MenuOpcao[]>([]);
@@ -550,6 +567,10 @@ export default function LojaNovaDemanda() {
 
   async function enviar() {
     if (!fluxoAtivo) return;
+    if (precisaEscolherLoja) {
+      toast.error("Selecione em nome de qual loja você está falando.");
+      return;
+    }
 
     setEnviando(true);
     const dadosEnvio: Record<string, string> = { ...dados };
@@ -596,6 +617,10 @@ export default function LojaNovaDemanda() {
 
   async function enviarBoleto() {
     if (!fluxoAtivo || !consultaCpfSelecionada || !cpfsAprovados) return;
+    if (precisaEscolherLoja) {
+      toast.error("Selecione em nome de qual loja você está falando.");
+      return;
+    }
     const sel = cpfsAprovados.find((x) => x.id === consultaCpfSelecionada);
     if (!sel) {
       toast.error("CPF aprovado não encontrado");
@@ -722,6 +747,36 @@ export default function LojaNovaDemanda() {
 
       <div className="flex-1 overflow-y-auto scroll-thin">
         <div className="mx-auto max-w-2xl p-4">
+          {lojasDoUsuario.length > 1 && !resultado && (
+            <div className="mb-4 rounded-lg border border-border bg-surface p-3">
+              <Label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Falando em nome da loja
+              </Label>
+              <Select
+                value={lojaEscolhida ?? ""}
+                onValueChange={(v) => {
+                  setLojaEscolhida(v);
+                  setLojaSelecionada(v);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a loja" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lojasDoUsuario.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {l}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {precisaEscolherLoja && (
+                <p className="mt-2 text-xs text-destructive">
+                  Escolha a loja antes de continuar.
+                </p>
+              )}
+            </div>
+          )}
           {ctxLoading ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />

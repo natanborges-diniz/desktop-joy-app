@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useLojaContext } from "@/hooks/useLojaContext";
+import { useFiltroLoja } from "@/context/FiltroLojaContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PushGate } from "@/components/PushGate";
@@ -44,7 +45,8 @@ export default function DemandasList() {
 
 function DemandasListInner() {
   const navigate = useNavigate();
-  const { lojaNome, podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { podeMenuLoja, loading: ctxLoading } = useLojaContext();
+  const { lojasFiltro, lojaSelecionada } = useFiltroLoja();
   const [items, setItems] = useState<Demanda[]>([]);
   const [loading, setLoading] = useState(true);
   // re-render a cada minuto para refrescar SLA
@@ -55,21 +57,22 @@ function DemandasListInner() {
   }, []);
 
   async function load() {
-    if (!lojaNome) {
+    if (!lojasFiltro.length) {
       setItems([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const safe = lojaNome.replace(/"/g, '\\"');
+    const grupoOr = lojasFiltro
+      .map((l) => `and(loja_nome.eq.__GRUPO__,metadata->lojas_nomes.cs.["${l.replace(/"/g, '\\"')}"])`)
+      .join(",");
+    const lojaOr = `loja_nome.in.(${lojasFiltro.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
     const { data } = await supabase
       .from("demandas_loja")
       .select(
         "id,numero_curto,assunto,pergunta,status,loja_nome,solicitante_nome,ultima_mensagem_loja_at,vista_pelo_operador,created_at,updated_at,metadata",
       )
-      .or(
-        `loja_nome.eq.${lojaNome},and(loja_nome.eq.__GRUPO__,metadata->lojas_nomes.cs.["${safe}"])`,
-      )
+      .or(`${lojaOr},${grupoOr}`)
       .neq("status", "encerrada")
       .order("created_at", { ascending: false })
       .limit(100);
@@ -79,12 +82,14 @@ function DemandasListInner() {
 
   useEffect(() => {
     void load();
-  }, [lojaNome]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lojasFiltro.join("|")]);
 
   useEffect(() => {
-    if (!lojaNome) return;
+    if (!lojasFiltro.length) return;
+    const chId = `demandas-${lojaSelecionada ?? "todas"}-${lojasFiltro.length}`;
     const ch = supabase
-      .channel(`demandas-${lojaNome}`)
+      .channel(chId)
       .on("postgres_changes", { event: "*", schema: "public", table: "demandas_loja" }, () =>
         void load(),
       )
@@ -95,7 +100,8 @@ function DemandasListInner() {
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [lojaNome]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lojasFiltro.join("|")]);
 
   const atrasadasIds = useMemo(
     () =>

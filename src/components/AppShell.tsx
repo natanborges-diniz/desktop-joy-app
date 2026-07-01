@@ -14,6 +14,8 @@ import { PushOnboardingBanner } from "@/components/PushOnboardingBanner";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { FiltroLojaProvider, useFiltroLoja } from "@/context/FiltroLojaContext";
+import { LojaFilterBar } from "@/components/LojaFilterBar";
 
 type Modulo = "menu_loja" | "demandas_minhas_lojas" | "chat_1a1" | null;
 type NavItem = {
@@ -57,6 +59,14 @@ function RailBadge({ count }: { count: number }) {
 }
 
 export default function AppShell() {
+  return (
+    <FiltroLojaProvider>
+      <AppShellInner />
+    </FiltroLojaProvider>
+  );
+}
+
+function AppShellInner() {
   const location = useLocation();
   const unread = useUnreadCount();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -65,6 +75,7 @@ export default function AppShell() {
   useAppBadge(unread);
   useNotificacoesRealtime();
   const { acessoTotal, podeMenuLoja, podeSupervisao, podeChat1a1, podeChatGrupo } = useLojaContext();
+  const { lojasDoUsuario, loading: filtroLoading } = useFiltroLoja();
 
   const isHome = location.pathname === "/";
   const isConversaRoute =
@@ -148,6 +159,12 @@ export default function AppShell() {
           <UpdateAvailableBanner />
           <PushOnboardingBanner />
           <PendenciasBanner />
+          <LojaFilterBarSlot pathname={location.pathname} />
+          {!filtroLoading && podeMenuLoja && lojasDoUsuario.length === 0 && showsLojaEmpty(location.pathname) && (
+            <div className="mx-3 mt-3 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+              Sem acesso a lojas — fale com um admin.
+            </div>
+          )}
           <main className="min-h-0 flex-1 overflow-hidden">
             {isHome ? (
               <>
@@ -253,3 +270,17 @@ function ChatPlaceholder() {
     </div>
   );
 }
+
+// Rotas onde faz sentido oferecer o filtro de loja / aviso de "sem acesso a lojas".
+const LOJA_ROUTES = ["/demandas", "/minhas-demandas", "/agenda", "/recebimento-os", "/cashback", "/nova-demanda"];
+function isLojaRoute(pathname: string) {
+  return LOJA_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+function showsLojaEmpty(pathname: string) {
+  return isLojaRoute(pathname);
+}
+function LojaFilterBarSlot({ pathname }: { pathname: string }) {
+  if (!isLojaRoute(pathname)) return null;
+  return <LojaFilterBar />;
+}
+
