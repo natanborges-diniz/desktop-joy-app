@@ -739,6 +739,36 @@ export default function LojaNovaDemanda() {
 
       <div className="flex-1 overflow-y-auto scroll-thin">
         <div className="mx-auto max-w-2xl p-4">
+          {lojasDoUsuario.length > 1 && !resultado && (
+            <div className="mb-4 rounded-lg border border-border bg-surface p-3">
+              <Label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Falando em nome da loja
+              </Label>
+              <Select
+                value={lojaEscolhida ?? ""}
+                onValueChange={(v) => {
+                  setLojaEscolhida(v);
+                  setLojaSelecionada(v);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a loja" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lojasDoUsuario.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {l}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {precisaEscolherLoja && (
+                <p className="mt-2 text-xs text-destructive">
+                  Escolha a loja antes de continuar.
+                </p>
+              )}
+            </div>
+          )}
           {ctxLoading ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
