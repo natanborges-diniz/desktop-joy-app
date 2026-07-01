@@ -108,6 +108,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || lojas.length === 0) return;
     const filter = `loja_nome=in.(${lojas.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
+    const filterUpper = `loja_nome=in.(${lojas.map((l) => `"${l.toUpperCase().replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
       .channel(`filtro-loja-badges-${user.id}`)
       .on(
@@ -117,7 +118,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "os_recebimento_loja", filter },
+        { event: "*", schema: "public", table: "os_recebimento_loja", filter: filterUpper },
         () => void recomputar(),
       )
       .subscribe();
@@ -125,6 +126,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       void supabase.removeChannel(ch);
     };
   }, [user, lojas, recomputar]);
+
 
   const totalDemandas = useMemo(
     () => Object.values(badges).reduce((s, b) => s + (b?.demandas ?? 0), 0),
