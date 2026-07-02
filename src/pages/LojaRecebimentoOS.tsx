@@ -470,7 +470,7 @@ export default function LojaRecebimentoOS() {
     let q = supabase
       .from("os_recebimento_loja" as any)
       .select(
-        "id, os_numero, numero_os, cliente_nome, produto, loja_nome, recebido_at, recebido_por_nome, notificado_cliente_at, wa_status, wa_status_at, wa_status_reason, agendamento_id",
+        "id, os_numero, cliente_nome, loja_nome, recebido_at, notificado_cliente_at, wa_status, wa_status_at, wa_status_reason, agendamento_id",
       )
       .not("recebido_at", "is", null)
       .order("recebido_at", { ascending: false })
