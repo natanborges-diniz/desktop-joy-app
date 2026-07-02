@@ -21,14 +21,16 @@ export type InscricaoPendente = {
  * Inscricoes de cashback aguardando validacao de PIN.
  *
  * Backend legado (Atrium/Firebird):
- *  - `regua_inscricao` usa `cod_empresa` (bigint) para identificar a loja.
- *  - `lojas_cidades` mapeia id (uuid) <-> cod_empresa (bigint) + nome.
- *  - `user_acessos` guarda `loja_id` (uuid de lojas_cidades) por usuario.
+ *  - `regua_inscricao` identifica loja por `cod_empresa` (bigint Firebird).
+ *  - `telefones_lojas(cod_empresa, nome_loja, ativo)` mapeia nome -> cod_empresa.
+ *  - `user_acessos(user_id, lojas text[], acesso_total)` define escopo do usuario.
+ *  - Nao existem colunas `loja_id`/`pin_validado_em`/`ativo` em user_acessos/regua_inscricao.
  *
  * Fluxo:
- *  1. Le user_acessos -> lista de loja_id.
- *  2. Le lojas_cidades filtrando por esses ids -> lista de cod_empresa e nomes.
- *  3. Consulta regua_inscricao com .in('cod_empresa', codEmpresas).
+ *  1. Le user_acessos -> nomes de loja (ou acesso_total).
+ *  2. Resolve nomes -> cod_empresa em telefones_lojas.
+ *  3. Consulta regua_inscricao com .in('cod_empresa', ...), status='ativa'
+ *     e pin_hash NOT NULL (pendente de validacao).
  */
 export function usePinsPendentes() {
   const { user } = useAuth();
@@ -46,43 +48,48 @@ export function usePinsPendentes() {
     setLoading(true);
     setError(null);
 
-    // 1) lojas do usuario (uuid ids em user_acessos.loja_id)
-    const lojaIds = new Set<string>();
+    // 1) Escopo do usuario
+    let acessoTotal = false;
+    const nomesUsuario = new Set<string>();
     try {
       const { data } = await supabase
         .from("user_acessos" as any)
-        .select("loja_id, ativo")
-        .eq("user_id", user.id);
-      for (const r of (data as any[] | null) ?? []) {
-        if (r && (r.ativo === true || r.ativo == null) && r.loja_id) {
-          lojaIds.add(String(r.loja_id));
+        .select("lojas, acesso_total")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const d = data as any;
+      if (d?.acesso_total === true) acessoTotal = true;
+      if (Array.isArray(d?.lojas)) {
+        for (const n of d.lojas) {
+          if (typeof n === "string" && n.trim()) nomesUsuario.add(normalizarNomeLoja(n));
         }
       }
     } catch {
       /* ignore */
     }
 
-    // 2) resolve cod_empresa via lojas_cidades
-    const codEmpresas: string[] = [];
+    // 2) telefones_lojas -> cod_empresa por nome
     const nomeByCod = new Map<string, string>();
-    if (lojaIds.size > 0) {
-      const { data: lc, error: lcErr } = await supabase
-        .from("lojas_cidades" as any)
-        .select("id, cod_empresa, nome, nome_cidade")
-        .in("id", [...lojaIds]);
-      if (lcErr) {
-        setError(lcErr.message);
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-      for (const l of ((lc as any[]) ?? [])) {
-        if (l?.cod_empresa != null) {
-          const key = String(l.cod_empresa);
-          codEmpresas.push(key);
-          nomeByCod.set(key, String(l.nome ?? l.nome_cidade ?? "").trim());
-        }
-      }
+    const codEmpresas: string[] = [];
+    let tlQuery = supabase
+      .from("telefones_lojas" as any)
+      .select("cod_empresa, nome_loja")
+      .eq("ativo", true)
+      .limit(1000);
+    const { data: tl, error: tlErr } = await tlQuery;
+    if (tlErr) {
+      setError(tlErr.message);
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    for (const l of ((tl as any[]) ?? [])) {
+      if (l?.cod_empresa == null || !l?.nome_loja) continue;
+      const nomeNorm = normalizarNomeLoja(String(l.nome_loja));
+      if (!acessoTotal && !nomesUsuario.has(nomeNorm)) continue;
+      const cod = String(l.cod_empresa);
+      codEmpresas.push(cod);
+      nomeByCod.set(cod, String(l.nome_loja).trim());
     }
 
     if (codEmpresas.length === 0) {
@@ -91,13 +98,12 @@ export function usePinsPendentes() {
       return;
     }
 
-    // 3) inscricoes com PIN pendente
+    // 3) inscricoes pendentes
     const { data, error: qErr } = await supabase
       .from("regua_inscricao" as any)
       .select("id, nome_cliente, cpf, whatsapp, cod_empresa, pin_expira_at, pin_tentativas, status, criado_em")
       .in("cod_empresa", codEmpresas)
       .eq("status", "ativa")
-      .is("pin_validado_em", null)
       .not("pin_hash", "is", null)
       .order("criado_em", { ascending: false });
 
