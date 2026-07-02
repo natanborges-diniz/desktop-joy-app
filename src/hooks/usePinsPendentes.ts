@@ -2,28 +2,33 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useFiltroLoja } from "@/context/FiltroLojaContext";
-import { carregarMapasLojasCashback, normalizarNomeLoja } from "@/lib/cashbackLoja";
+import { normalizarNomeLoja } from "@/lib/cashbackLoja";
 
 export type InscricaoPendente = {
   id: string;
-  contato_id: string | null;
-  loja_id: string | null;
+  nome_cliente: string | null;
+  cpf: string | null;
+  whatsapp: string | null;
+  cod_empresa: string | null;
   loja_nome: string | null;
-  valor_venda: number | null;
-  valor_cashback: number | null;
+  pin_expira_at: string | null;
+  pin_tentativas: number | null;
+  status: string | null;
   criado_em: string;
-  contato_nome: string | null;
-  contato_telefone: string | null;
 };
 
 /**
- * Lista/contagem de inscricoes de cashback aguardando validacao de PIN.
- * RLS do backend ja restringe as inscricoes as lojas do usuario logado.
- * Alem disso, respeita o chip de loja selecionado (FiltroLojaContext).
+ * Inscricoes de cashback aguardando validacao de PIN.
  *
- * Importante: no backend legado `regua_inscricao.loja_id` nao possui FK com
- * `lojas`, entao PostgREST nao aceita `lojas(nome)` dentro do select. Por isso
- * carregamos as inscricoes sem join e resolvemos loja_id -> nome separadamente.
+ * Backend legado (Atrium/Firebird):
+ *  - `regua_inscricao` usa `cod_empresa` (bigint) para identificar a loja.
+ *  - `lojas_cidades` mapeia id (uuid) <-> cod_empresa (bigint) + nome.
+ *  - `user_acessos` guarda `loja_id` (uuid de lojas_cidades) por usuario.
+ *
+ * Fluxo:
+ *  1. Le user_acessos -> lista de loja_id.
+ *  2. Le lojas_cidades filtrando por esses ids -> lista de cod_empresa e nomes.
+ *  3. Consulta regua_inscricao com .in('cod_empresa', codEmpresas).
  */
 export function usePinsPendentes() {
   const { user } = useAuth();
@@ -31,8 +36,6 @@ export function usePinsPendentes() {
   const [rows, setRows] = useState<InscricaoPendente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const resolverLojas = useCallback(() => carregarMapasLojasCashback(), []);
 
   const load = useCallback(async () => {
     if (!user) {
@@ -42,68 +45,85 @@ export function usePinsPendentes() {
     }
     setLoading(true);
     setError(null);
-    const lojasMap = await resolverLojas();
-    const selectBase = "id, contato_id, loja_id, valor_venda, valor_cashback, criado_em";
-    let query = supabase
-      .from("regua_inscricao" as any)
-      .select(`${selectBase}, contatos(nome, telefone)`)
-      .eq("status", "ativa")
-      .is("pin_validado_em", null)
-      .not("pin_hash", "is", null);
 
-    let { data, error } = await query.order("criado_em", { ascending: false });
+    // 1) lojas do usuario (uuid ids em user_acessos.loja_id)
+    const lojaIds = new Set<string>();
+    try {
+      const { data } = await supabase
+        .from("user_acessos" as any)
+        .select("loja_id, ativo")
+        .eq("user_id", user.id);
+      for (const r of (data as any[] | null) ?? []) {
+        if (r && (r.ativo === true || r.ativo == null) && r.loja_id) {
+          lojaIds.add(String(r.loja_id));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
 
-    // Bancos legados podem nao ter FK declarada para `contatos`, o que faz o
-    // select embutido falhar. Nesse caso, carrega as inscricoes e busca os
-    // contatos separadamente.
-    let contatosById = new Map<string, { nome?: string | null; telefone?: string | null }>();
-    if (error && /relationship|schema cache|contatos/i.test(error.message ?? "")) {
-      let fallback = supabase
-        .from("regua_inscricao" as any)
-        .select(selectBase)
-        .eq("status", "ativa")
-        .is("pin_validado_em", null)
-        .not("pin_hash", "is", null);
-      const resp = await fallback.order("criado_em", { ascending: false });
-      data = resp.data;
-      error = resp.error;
-
-      const contatoIds = [...new Set(((data ?? []) as any[]).map((r) => r.contato_id).filter(Boolean))];
-      if (contatoIds.length > 0) {
-        const contatosResp = await supabase
-          .from("contatos" as any)
-          .select("id, nome, telefone")
-          .in("id", contatoIds)
-          .limit(1000);
-        if (!contatosResp.error) {
-          contatosById = new Map(
-            ((contatosResp.data ?? []) as any[]).map((c) => [String(c.id), { nome: c.nome, telefone: c.telefone }]),
-          );
+    // 2) resolve cod_empresa via lojas_cidades
+    const codEmpresas: string[] = [];
+    const nomeByCod = new Map<string, string>();
+    if (lojaIds.size > 0) {
+      const { data: lc, error: lcErr } = await supabase
+        .from("lojas_cidades" as any)
+        .select("id, cod_empresa, nome, nome_cidade")
+        .in("id", [...lojaIds]);
+      if (lcErr) {
+        setError(lcErr.message);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      for (const l of ((lc as any[]) ?? [])) {
+        if (l?.cod_empresa != null) {
+          const key = String(l.cod_empresa);
+          codEmpresas.push(key);
+          nomeByCod.set(key, String(l.nome ?? l.nome_cidade ?? "").trim());
         }
       }
     }
-    if (error) {
+
+    if (codEmpresas.length === 0) {
       setRows([]);
-      setError(error.message || "Nao foi possivel carregar os PINs pendentes.");
+      setLoading(false);
+      return;
+    }
+
+    // 3) inscricoes com PIN pendente
+    const { data, error: qErr } = await supabase
+      .from("regua_inscricao" as any)
+      .select("id, nome_cliente, cpf, whatsapp, cod_empresa, pin_expira_at, pin_tentativas, status, criado_em")
+      .in("cod_empresa", codEmpresas)
+      .eq("status", "ativa")
+      .is("pin_validado_em", null)
+      .not("pin_hash", "is", null)
+      .order("criado_em", { ascending: false });
+
+    if (qErr) {
+      setError(qErr.message || "Nao foi possivel carregar os PINs pendentes.");
+      setRows([]);
     } else {
-      const mapped = ((data ?? []) as any[]).map((r) => {
-        const contatoFallback = contatosById.get(String(r.contato_id ?? ""));
+      const mapped = ((data as any[]) ?? []).map((r) => {
+        const cod = r.cod_empresa != null ? String(r.cod_empresa) : null;
         return {
           id: r.id,
-          contato_id: r.contato_id ?? null,
-          loja_id: r.loja_id ?? null,
-          loja_nome: lojasMap.byId.get(String(r.loja_id ?? "")) ?? null,
-          valor_venda: r.valor_venda ?? null,
-          valor_cashback: r.valor_cashback ?? null,
+          nome_cliente: r.nome_cliente ?? null,
+          cpf: r.cpf ?? null,
+          whatsapp: r.whatsapp ?? null,
+          cod_empresa: cod,
+          loja_nome: cod ? nomeByCod.get(cod) ?? null : null,
+          pin_expira_at: r.pin_expira_at ?? null,
+          pin_tentativas: r.pin_tentativas ?? null,
+          status: r.status ?? null,
           criado_em: r.criado_em,
-          contato_nome: r.contatos?.nome ?? contatoFallback?.nome ?? null,
-          contato_telefone: r.contatos?.telefone ?? contatoFallback?.telefone ?? null,
-        };
-      }) as InscricaoPendente[];
+        } as InscricaoPendente;
+      });
       setRows(mapped);
     }
     setLoading(false);
-  }, [user, lojaSelecionada, resolverLojas]);
+  }, [user]);
 
   useEffect(() => {
     void load();
@@ -126,23 +146,18 @@ export function usePinsPendentes() {
 
   const items = useMemo(() => {
     if (!lojaSelecionada) return rows;
-    const lojaKey = normalizarLoja(lojaSelecionada);
-    const mapeados = rows.filter((r) => r.loja_nome && normalizarLoja(r.loja_nome) === lojaKey);
-    // Se nao conseguimos resolver a loja_id -> nome (legado sem tabela/FK), nao
-    // esconda o PIN pendente da loja: mostra como "loja nao mapeada" para o
-    // operador poder validar em vez de ficar com a tela vazia.
+    const lojaKey = normalizarNomeLoja(lojaSelecionada);
+    const mapeados = rows.filter((r) => r.loja_nome && normalizarNomeLoja(r.loja_nome) === lojaKey);
     return mapeados.length > 0 ? mapeados : rows.filter((r) => !r.loja_nome);
   }, [rows, lojaSelecionada]);
 
   const lojasSemMapeamento = useMemo(() => {
     if (lojasDoUsuario.length === 0) return [];
     const mapped = new Set(rows.map((r) => r.loja_nome).filter(Boolean) as string[]);
-    return lojasDoUsuario.filter((loja) => ![...mapped].some((m) => normalizarLoja(m) === normalizarLoja(loja)));
+    return lojasDoUsuario.filter(
+      (loja) => ![...mapped].some((m) => normalizarNomeLoja(m) === normalizarNomeLoja(loja)),
+    );
   }, [lojasDoUsuario, rows]);
 
   return { items, loading, count: items.length, reload: load, error, lojasSemMapeamento };
-}
-
-function normalizarLoja(value: string) {
-  return normalizarNomeLoja(value);
 }
