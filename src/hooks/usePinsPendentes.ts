@@ -4,6 +4,12 @@ import { useAuth } from "@/auth/auth-context";
 import { useFiltroLoja } from "@/context/FiltroLojaContext";
 import { normalizarNomeLoja } from "@/lib/cashbackLoja";
 
+export type CreditoInfo = {
+  valor: number | null;
+  libera_em: string | null;
+  status: string | null;
+};
+
 export type InscricaoPendente = {
   id: string;
   nome_cliente: string | null;
@@ -21,70 +27,31 @@ export type InscricaoPendente = {
   credito?: CreditoInfo | null;
 };
 
-export type CreditoInfo = {
-  valor: number | null;
-  libera_em: string | null;
-  status: string | null;
-};
-
 export type PinBuckets = {
   aguardando: InscricaoPendente[];
   expirados: InscricaoPendente[];
   confirmadosHoje: InscricaoPendente[];
 };
 
-const SELECT_COLS =
-  "id, nome_cliente, cpf, whatsapp, cod_empresa, numero_venda, valor_total_informado, pin_expira_at, pin_tentativas, pin_confirmado_at, status, criado_em";
+type Aba = "aguardando" | "expirados" | "confirmados_hoje";
 
-const STATUS_INATIVOS = new Set([
-  "cancelada",
-  "cancelado",
-  "inativa",
-  "inativo",
-  "finalizada",
-  "finalizado",
-  "excluida",
-  "excluido",
-]);
-
-function statusPermiteValidacao(status: string | null | undefined) {
-  const key = String(status ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-  return !STATUS_INATIVOS.has(key);
-}
-
-function pinAindaNaoConfirmado(value: string | null | undefined) {
-  const raw = String(value ?? "").trim();
-  return raw.length === 0;
-}
-
-function variantesCodEmpresa(cod: string) {
-  const raw = String(cod).trim();
-  const out = new Set<string>();
-  if (raw) out.add(raw);
-
-  const n = Number(raw);
-  if (Number.isFinite(n)) {
-    const semZeros = String(n);
-    out.add(semZeros);
-    out.add(semZeros.padStart(2, "0"));
-    out.add(semZeros.padStart(3, "0"));
-  }
-  return [...out];
-}
-
-function mapRow(r: any, nomeByCod: Map<string, string>): InscricaoPendente {
+function mapRow(r: any): InscricaoPendente {
   const cod = r.cod_empresa != null ? String(r.cod_empresa) : null;
+  const credito: CreditoInfo | null =
+    r.cashback_ativado != null || r.cashback_libera != null
+      ? {
+          valor: r.cashback_ativado != null ? Number(r.cashback_ativado) : null,
+          libera_em: r.cashback_libera ?? null,
+          status: "ativo",
+        }
+      : null;
   return {
     id: r.id,
     nome_cliente: r.nome_cliente ?? null,
     cpf: r.cpf ?? null,
     whatsapp: r.whatsapp ?? null,
     cod_empresa: cod,
-    loja_nome: r.loja_nome ?? (cod ? nomeByCod.get(cod) ?? null : null),
+    loja_nome: r.nome_loja ?? null,
     numero_venda: r.numero_venda ?? null,
     valor_total_informado:
       r.valor_total_informado != null ? Number(r.valor_total_informado) : null,
@@ -93,259 +60,52 @@ function mapRow(r: any, nomeByCod: Map<string, string>): InscricaoPendente {
     pin_confirmado_at: r.pin_confirmado_at ?? null,
     status: r.status ?? null,
     criado_em: r.criado_em,
+    credito,
   };
 }
 
-function edgeBucketsOk(data: any) {
-  const src = data?.buckets ?? data;
-  return (
-    (data?.status === "ok" || data?.ok === true || data?.buckets) &&
-    Array.isArray(src?.aguardando) &&
-    Array.isArray(src?.expirados) &&
-    Array.isArray(src?.confirmadosHoje)
+async function fetchAba(aba: Aba): Promise<InscricaoPendente[]> {
+  const { data, error } = await supabase.rpc(
+    "regua_listar_pins_por_usuario" as any,
+    { p_aba: aba },
   );
+  if (error) throw error;
+  return ((data as any[]) ?? []).map(mapRow);
 }
 
 export function usePinsPendentes() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { lojaSelecionada, lojasDoUsuario } = useFiltroLoja();
   const [buckets, setBuckets] = useState<PinBuckets>({
     aguardando: [],
     expirados: [],
     confirmadosHoje: [],
   });
-  const [nomeByCodState, setNomeByCodState] = useState<Map<string, string>>(new Map());
-  const [escopoCods, setEscopoCods] = useState<Set<string> | null>(null);
-  const [aplicarFiltroLoja, setAplicarFiltroLoja] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) {
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
-      setAplicarFiltroLoja(false);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-
-    // 1) Escopo do usuario — user_acessos + fallback admin/user_roles
-    const [acessoRes, rolesRes] = await Promise.all([
-      supabase
-        .from("user_acessos" as any)
-        .select("lojas, acesso_total")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", user.id),
-    ]);
-    const acesso = acessoRes.data as any;
-    const roles = ((rolesRes.data as any[]) ?? []).map((r) => String(r?.role ?? "").toLowerCase());
-    const isAdminRole =
-      roles.includes("admin") ||
-      roles.includes("superadmin") ||
-      String((profile as any)?.tipo_usuario ?? "").toLowerCase() === "admin";
-    // Sem linha em user_acessos + role admin (ou tipo_usuario admin) => acesso total
-    const acessoTotal = acesso?.acesso_total === true || (!acesso && isAdminRole) || isAdminRole;
-    const nomes: string[] = Array.isArray(acesso?.lojas)
-      ? (acesso.lojas as string[]).filter((n) => typeof n === "string" && n.trim())
-      : [];
-    setAplicarFiltroLoja(!acessoTotal && nomes.length > 0);
-
-    // 2) Mapear nome -> cod_empresa. Só aplica filtro quando há lojas restritas.
-    const nomeByCod = new Map<string, string>();
-    let codsEmpresa: string[] | null = null;
-    const nomesRestritos = nomes.map((n) => normalizarNomeLoja(n));
-    const nomesRestritosSet = new Set(nomesRestritos);
-
-    const { data: tl, error: tlErr } = await supabase
-      .from("telefones_lojas" as any)
-      .select("cod_empresa, nome_loja, tipo, ativo")
-      .limit(5000);
-
-    if (tlErr) {
-      setError(tlErr.message);
-      setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
-      setLoading(false);
-      return;
-    }
-    const codsRestritos = new Set<string>();
-    for (const l of (tl as any[] | null) ?? []) {
-      if (l?.cod_empresa == null || !l?.nome_loja) continue;
-      if (l?.ativo === false) continue;
-      const tipo = String(l?.tipo ?? "loja").toLowerCase();
-      if (tipo && tipo !== "loja") continue;
-      const nomeLoja = String(l.nome_loja).trim();
-      const cod = String(l.cod_empresa);
-      const nomeNormalizado = normalizarNomeLoja(nomeLoja);
-      for (const variante of variantesCodEmpresa(cod)) nomeByCod.set(variante, nomeLoja);
-      if (!acessoTotal && nomesRestritosSet.has(nomeNormalizado)) {
-        for (const variante of variantesCodEmpresa(cod)) codsRestritos.add(variante);
-      }
-    }
-
-    if (!acessoTotal && nomes.length > 0) {
-      codsEmpresa = [...codsRestritos];
-      if (codsEmpresa.length === 0) {
-        setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
-        setEscopoCods(new Set());
-        setNomeByCodState(nomeByCod);
-        setLoading(false);
-        return;
-      }
-    } else {
-      codsEmpresa = null;
-    }
-
-
-    setNomeByCodState(nomeByCod);
-    setEscopoCods(codsEmpresa ? new Set(codsEmpresa) : null);
-
-    // Preferimos a Edge Function porque ela usa o backend com service-role para
-    // listar PINs dentro do escopo da loja. A tabela tem PII e, no Atrium, RLS
-    // pode ocultar tudo para usuário de loja quando consultada direto no browser.
     try {
-      const { data: edgeData, error: edgeErr } = await supabase.functions.invoke("cashback-loja", {
-        body: {
-          action: "listar_pins_validacao",
-          loja_nome: lojaSelecionada ?? null,
-        },
-      });
-
-      if (!edgeErr && edgeBucketsOk(edgeData)) {
-        const src = (edgeData as any).buckets ?? edgeData;
-        setBuckets({
-          aguardando: src.aguardando.map((r: any) => mapRow(r, nomeByCod)),
-          expirados: src.expirados.map((r: any) => mapRow(r, nomeByCod)),
-          confirmadosHoje: src.confirmadosHoje.map((r: any) => mapRow(r, nomeByCod)),
-        });
-        setLoading(false);
-        return;
-      }
-    } catch {
-      // Compat: enquanto a EF legada não tiver a ação listar_pins_validacao,
-      // cai para a leitura direta existente.
-    }
-
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const nowMs = now.getTime();
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const startOfDayIso = startOfDay.toISOString();
-
-    // 3) Queries paralelas. Não filtramos `status = ativa` no servidor porque há
-    // registros legados válidos para PIN com status divergente; filtramos apenas
-    // status explicitamente encerrados no cliente. Buscamos expirados em queries
-    // dedicadas para um PIN antigo não sumir por limite/ordenação do lote geral.
-    const basePendentes = supabase
-      .from("regua_inscricao" as any)
-      .select(SELECT_COLS)
-      .order("criado_em", { ascending: false })
-      .limit(3000);
-
-    const baseExpiradosPorData = supabase
-      .from("regua_inscricao" as any)
-      .select(SELECT_COLS)
-      .lte("pin_expira_at", nowIso)
-      .order("pin_expira_at", { ascending: false })
-      .limit(3000);
-
-    const baseSemExpiracao = supabase
-      .from("regua_inscricao" as any)
-      .select(SELECT_COLS)
-      .is("pin_expira_at", null)
-      .order("criado_em", { ascending: false })
-      .limit(1000);
-
-    const baseBloqueados = supabase
-      .from("regua_inscricao" as any)
-      .select(SELECT_COLS)
-      .gte("pin_tentativas", 3)
-      .order("criado_em", { ascending: false })
-      .limit(1000);
-
-    const baseConfirmados = supabase
-      .from("regua_inscricao" as any)
-      .select(SELECT_COLS)
-      .gte("pin_confirmado_at", startOfDayIso)
-      .order("pin_confirmado_at", { ascending: false })
-      .limit(200);
-
-    const applyScope = (q: any) => (codsEmpresa ? q.in("cod_empresa", codsEmpresa) : q);
-
-    const [rPend, rExpData, rSemExp, rBloq, rCf] = await Promise.all([
-      applyScope(basePendentes),
-      applyScope(baseExpiradosPorData),
-      applyScope(baseSemExpiracao),
-      applyScope(baseBloqueados),
-      applyScope(baseConfirmados),
-    ]);
-
-    if (rPend.error || rExpData.error || rSemExp.error || rBloq.error || rCf.error) {
-      setError(
-        rPend.error?.message ||
-          rExpData.error?.message ||
-          rSemExp.error?.message ||
-          rBloq.error?.message ||
-          rCf.error?.message ||
-          "Falha",
-      );
+      const [aguardando, expirados, confirmadosHoje] = await Promise.all([
+        fetchAba("aguardando"),
+        fetchAba("expirados"),
+        fetchAba("confirmados_hoje"),
+      ]);
+      setBuckets({ aguardando, expirados, confirmadosHoje });
+    } catch (e: any) {
+      setError(e?.message ?? "Falha ao carregar PINs");
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const pendentesById = new Map<string, InscricaoPendente>();
-    for (const r of [
-      ...((rPend.data as any[]) ?? []),
-      ...((rExpData.data as any[]) ?? []),
-      ...((rSemExp.data as any[]) ?? []),
-      ...((rBloq.data as any[]) ?? []),
-    ]) {
-      const mapped = mapRow(r, nomeByCod);
-      if (pinAindaNaoConfirmado(mapped.pin_confirmado_at) && statusPermiteValidacao(mapped.status)) {
-        pendentesById.set(mapped.id, mapped);
-      }
-    }
-    const pendentes = [...pendentesById.values()];
-
-    const aguardando = pendentes.filter((r) => {
-      const expMs = r.pin_expira_at ? Date.parse(r.pin_expira_at) : Number.NaN;
-      return Number.isFinite(expMs) && expMs > nowMs && (r.pin_tentativas ?? 0) < 3;
-    });
-    const expirados = pendentes.filter((r) => {
-      const expMs = r.pin_expira_at ? Date.parse(r.pin_expira_at) : Number.NaN;
-      return !Number.isFinite(expMs) || expMs <= nowMs || (r.pin_tentativas ?? 0) >= 3;
-    });
-    const confirmadosHoje = ((rCf.data as any[]) ?? []).map((r) => mapRow(r, nomeByCod));
-
-    // 4) Join cashback_credito para confirmados
-    if (confirmadosHoje.length > 0) {
-      const ids = confirmadosHoje.map((c) => c.id);
-      try {
-        const { data: creditos } = await supabase
-          .from("cashback_credito" as any)
-          .select("inscricao_id, valor, valor_credito, libera_em, liberacao_em, data_liberacao, status")
-          .in("inscricao_id", ids)
-          .eq("status", "ativo");
-        const byInsc = new Map<string, CreditoInfo>();
-        for (const c of (creditos as any[] | null) ?? []) {
-          byInsc.set(String(c.inscricao_id), {
-            valor: c.valor != null ? Number(c.valor) : c.valor_credito != null ? Number(c.valor_credito) : null,
-            libera_em: c.libera_em ?? c.liberacao_em ?? c.data_liberacao ?? null,
-            status: c.status ?? null,
-          });
-        }
-        for (const c of confirmadosHoje) c.credito = byInsc.get(c.id) ?? null;
-      } catch {
-        // tabela pode nao existir no ambiente atual; ignora
-      }
-    }
-
-    setBuckets({ aguardando, expirados, confirmadosHoje });
-    setLoading(false);
-  }, [user, profile, lojaSelecionada]);
+  }, [user]);
 
   useEffect(() => {
     void load();
@@ -354,18 +114,15 @@ export function usePinsPendentes() {
   useEffect(() => {
     if (!user) return;
     const uniq =
-      (typeof crypto !== "undefined" && "randomUUID" in crypto
+      typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const ch = supabase
       .channel(`regua-inscricao-pins-${user.id}-${uniq}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "regua_inscricao" },
-        (payload) => {
-          const cod =
-            (payload.new as any)?.cod_empresa ?? (payload.old as any)?.cod_empresa;
-          if (escopoCods && cod != null && !escopoCods.has(String(cod))) return;
+        () => {
           void load();
         },
       )
@@ -373,11 +130,10 @@ export function usePinsPendentes() {
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [user, load, escopoCods]);
+  }, [user, load]);
 
   const filtrarPorLoja = useCallback(
     (list: InscricaoPendente[]) => {
-      if (!aplicarFiltroLoja) return list;
       if (!lojaSelecionada) return list;
       const lojaKey = normalizarNomeLoja(lojaSelecionada);
       const mapeados = list.filter(
@@ -385,11 +141,17 @@ export function usePinsPendentes() {
       );
       return mapeados.length > 0 ? mapeados : list.filter((r) => !r.loja_nome);
     },
-    [aplicarFiltroLoja, lojaSelecionada],
+    [lojaSelecionada],
   );
 
-  const aguardando = useMemo(() => filtrarPorLoja(buckets.aguardando), [buckets.aguardando, filtrarPorLoja]);
-  const expirados = useMemo(() => filtrarPorLoja(buckets.expirados), [buckets.expirados, filtrarPorLoja]);
+  const aguardando = useMemo(
+    () => filtrarPorLoja(buckets.aguardando),
+    [buckets.aguardando, filtrarPorLoja],
+  );
+  const expirados = useMemo(
+    () => filtrarPorLoja(buckets.expirados),
+    [buckets.expirados, filtrarPorLoja],
+  );
   const confirmadosHoje = useMemo(
     () => filtrarPorLoja(buckets.confirmadosHoje),
     [buckets.confirmadosHoje, filtrarPorLoja],
@@ -397,9 +159,15 @@ export function usePinsPendentes() {
 
   const lojasSemMapeamento = useMemo(() => {
     if (lojasDoUsuario.length === 0) return [];
-    const mapeadas = new Set([...nomeByCodState.values()].map((n) => normalizarNomeLoja(n)));
-    return lojasDoUsuario.filter((loja) => !mapeadas.has(normalizarNomeLoja(loja)));
-  }, [lojasDoUsuario, nomeByCodState]);
+    const nomesRetornados = new Set<string>();
+    for (const r of [...buckets.aguardando, ...buckets.expirados, ...buckets.confirmadosHoje]) {
+      if (r.loja_nome) nomesRetornados.add(normalizarNomeLoja(r.loja_nome));
+    }
+    // Só reportamos falta de mapeamento quando há algum registro; caso contrário
+    // não conseguimos distinguir "sem mapeamento" de "sem PINs".
+    if (nomesRetornados.size === 0) return [];
+    return lojasDoUsuario.filter((loja) => !nomesRetornados.has(normalizarNomeLoja(loja)));
+  }, [lojasDoUsuario, buckets]);
 
   return {
     aguardando,
