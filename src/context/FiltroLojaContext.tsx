@@ -83,7 +83,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
         .from("os_recebimento_loja" as any)
         .select("loja_nome")
         .in("loja_nome", lojasUpper)
-        .is("confirmado_at", null)
+        .is("notificado_cliente_at", null)
         .limit(1000),
     ]);
     const map: Record<string, LojaBadges> = {};

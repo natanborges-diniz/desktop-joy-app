@@ -49,12 +49,9 @@ type WaStatus = "sent" | "delivered" | "read" | "failed" | "no_dispatch" | null;
 type HistoricoRow = {
   id: string;
   os_numero: string | null;
-  numero_os?: string | null;
   cliente_nome: string | null;
-  produto: string | null;
   loja_nome: string | null;
   recebido_at: string | null;
-  recebido_por_nome: string | null;
   notificado_cliente_at: string | null;
   wa_status: WaStatus;
   wa_status_at: string | null;
@@ -358,7 +355,7 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
     setResending(true);
     try {
       const { data, error } = await supabase.functions.invoke("confirmar-recebimento-os", {
-        body: { action: "resend", os_numero: row.os_numero ?? row.numero_os, loja_nome: row.loja_nome },
+        body: { action: "resend", os_numero: row.os_numero, loja_nome: row.loja_nome },
       });
       if (error) throw error;
       if (data && typeof data === "object" && (data as any).error) {
@@ -379,7 +376,7 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <CardTitle className="text-base">
-              OS {row.os_numero ?? row.numero_os ?? "—"}
+              OS {row.os_numero ?? "—"}
               {row.cliente_nome ? <span className="text-muted-foreground"> · {row.cliente_nome}</span> : null}
             </CardTitle>
             <div className="mt-0.5 text-xs text-muted-foreground">
@@ -473,7 +470,7 @@ export default function LojaRecebimentoOS() {
     let q = supabase
       .from("os_recebimento_loja" as any)
       .select(
-        "id, os_numero, numero_os, cliente_nome, produto, loja_nome, recebido_at, recebido_por_nome, notificado_cliente_at, wa_status, wa_status_at, wa_status_reason, agendamento_id",
+        "id, os_numero, cliente_nome, loja_nome, recebido_at, notificado_cliente_at, wa_status, wa_status_at, wa_status_reason, agendamento_id",
       )
       .not("recebido_at", "is", null)
       .order("recebido_at", { ascending: false })
