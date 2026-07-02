@@ -94,16 +94,22 @@ function PinCard({
     setConfirmando(true);
     try {
       const data = await invokeCashback({
-        action: "validar_pin",
+        action: "confirmar_pin",
         ...lojaPayload,
         inscricao_id: item.id,
         pin,
       });
-      if (data?.status === "ok" || data?.ok === true || data?.validado === true) {
+      if (data?.status === "validado" || data?.status === "ja_confirmado" || data?.status === "ok" || data?.ok === true || data?.validado === true) {
         toast.success("PIN validado com sucesso.");
         onDone();
       } else {
-        toast.error(data?.mensagem || data?.error || "PIN incorreto ou expirado.");
+        const motivos: Record<string, string> = {
+          pin_incorreto: `PIN incorreto. Tentativas restantes: ${data?.tentativas_restantes ?? 0}`,
+          pin_expirado: "PIN expirou. Reenvie um novo.",
+          pin_nao_gerado: "PIN ainda nao foi gerado. Clique em Reenviar PIN.",
+          tentativas_excedidas: "Tentativas excedidas. Reenvie um novo PIN.",
+        };
+        toast.error(motivos[data?.motivo] || data?.mensagem || data?.error || "PIN incorreto ou expirado.");
       }
     } catch (e: any) {
       toast.error(e?.message ?? "Falha ao validar PIN.");
@@ -116,8 +122,11 @@ function PinCard({
     setReenviando(true);
     try {
       const data = await invokeCashback({ action: "reenviar_pin", ...lojaPayload, inscricao_id: item.id });
-      if (data?.status === "ok" || data?.ok === true || data?.enviado === true) {
+      if (data?.status === "pin_enviado" || data?.status === "ok" || data?.ok === true || data?.enviado === true) {
         toast.success("PIN reenviado ao cliente.");
+      } else if (data?.status === "ja_confirmado") {
+        toast.success("PIN ja confirmado anteriormente.");
+        onDone();
       } else {
         toast.message(data?.mensagem || "Solicitacao registrada.");
       }

@@ -29,8 +29,10 @@ export type InscricaoPendente = {
  * Fluxo:
  *  1. Le user_acessos -> nomes de loja (ou acesso_total).
  *  2. Resolve nomes -> cod_empresa em telefones_lojas.
- *  3. Consulta regua_inscricao com .in('cod_empresa', ...), status='ativa'
- *     e pin_hash NOT NULL (pendente de validacao).
+ *  3. Consulta regua_inscricao com .in('cod_empresa', ...), pin_hash NOT NULL
+ *     e pin_confirmado_at IS NULL. O status nao e fonte segura aqui: o fluxo
+ *     cashback-loja/regua_registrar_venda grava inscricoes novas como
+ *     `aguardando_entrega`, enquanto bases antigas podem usar `ativa`.
  */
 export function usePinsPendentes() {
   const { user } = useAuth();
@@ -74,7 +76,6 @@ export function usePinsPendentes() {
     let tlQuery = supabase
       .from("telefones_lojas" as any)
       .select("cod_empresa, nome_loja")
-      .eq("ativo", true)
       .limit(1000);
     const { data: tl, error: tlErr } = await tlQuery;
     if (tlErr) {
@@ -103,8 +104,8 @@ export function usePinsPendentes() {
       .from("regua_inscricao" as any)
       .select("id, nome_cliente, cpf, whatsapp, cod_empresa, pin_expira_at, pin_tentativas, status, criado_em")
       .in("cod_empresa", codEmpresas)
-      .eq("status", "ativa")
       .not("pin_hash", "is", null)
+      .is("pin_confirmado_at", null)
       .order("criado_em", { ascending: false });
 
     if (qErr) {
