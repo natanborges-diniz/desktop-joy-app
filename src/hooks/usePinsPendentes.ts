@@ -66,12 +66,14 @@ export function usePinsPendentes() {
   });
   const [nomeByCodState, setNomeByCodState] = useState<Map<string, string>>(new Map());
   const [escopoCods, setEscopoCods] = useState<Set<string> | null>(null);
+  const [aplicarFiltroLoja, setAplicarFiltroLoja] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) {
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
+      setAplicarFiltroLoja(false);
       setLoading(false);
       return;
     }
@@ -98,6 +100,7 @@ export function usePinsPendentes() {
     const nomes: string[] = Array.isArray(acesso?.lojas)
       ? (acesso.lojas as string[]).filter((n) => typeof n === "string" && n.trim())
       : [];
+    setAplicarFiltroLoja(!acessoTotal && nomes.length > 0);
 
     // 2) Mapear nome -> cod_empresa. Só aplica filtro quando há lojas restritas.
     const nomeByCod = new Map<string, string>();
@@ -248,6 +251,7 @@ export function usePinsPendentes() {
 
   const filtrarPorLoja = useCallback(
     (list: InscricaoPendente[]) => {
+      if (!aplicarFiltroLoja) return list;
       if (!lojaSelecionada) return list;
       const lojaKey = normalizarNomeLoja(lojaSelecionada);
       const mapeados = list.filter(
@@ -255,7 +259,7 @@ export function usePinsPendentes() {
       );
       return mapeados.length > 0 ? mapeados : list.filter((r) => !r.loja_nome);
     },
-    [lojaSelecionada],
+    [aplicarFiltroLoja, lojaSelecionada],
   );
 
   const aguardando = useMemo(() => filtrarPorLoja(buckets.aguardando), [buckets.aguardando, filtrarPorLoja]);
