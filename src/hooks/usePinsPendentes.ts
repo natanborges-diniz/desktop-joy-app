@@ -195,8 +195,8 @@ export function usePinsPendentes() {
 
     // 3) Queries paralelas. Não filtramos `status = ativa` no servidor porque há
     // registros legados válidos para PIN com status divergente; filtramos apenas
-    // status explicitamente encerrados no cliente. A query direta de expirados
-    // evita que um limite geral esconda PINs antigos que precisam de reenvio.
+    // status explicitamente encerrados no cliente. Buscamos expirados em queries
+    // dedicadas para um PIN antigo não sumir por limite/ordenação do lote geral.
     const basePendentes = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
@@ -204,11 +204,27 @@ export function usePinsPendentes() {
       .order("criado_em", { ascending: false })
       .limit(3000);
 
-    const baseExpirados = supabase
+    const baseExpiradosPorData = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
       .is("pin_confirmado_at", null)
-      .or(`pin_expira_at.lte.${nowIso},pin_expira_at.is.null,pin_tentativas.gte.3`)
+      .lte("pin_expira_at", nowIso)
+      .order("pin_expira_at", { ascending: false })
+      .limit(3000);
+
+    const baseSemExpiracao = supabase
+      .from("regua_inscricao" as any)
+      .select(SELECT_COLS)
+      .is("pin_confirmado_at", null)
+      .is("pin_expira_at", null)
+      .order("criado_em", { ascending: false })
+      .limit(1000);
+
+    const baseBloqueados = supabase
+      .from("regua_inscricao" as any)
+      .select(SELECT_COLS)
+      .is("pin_confirmado_at", null)
+      .gte("pin_tentativas", 3)
       .order("criado_em", { ascending: false })
       .limit(1000);
 
@@ -221,21 +237,35 @@ export function usePinsPendentes() {
 
     const applyScope = (q: any) => (codsEmpresa ? q.in("cod_empresa", codsEmpresa) : q);
 
-    const [rPend, rExp, rCf] = await Promise.all([
+    const [rPend, rExpData, rSemExp, rBloq, rCf] = await Promise.all([
       applyScope(basePendentes),
-      applyScope(baseExpirados),
+      applyScope(baseExpiradosPorData),
+      applyScope(baseSemExpiracao),
+      applyScope(baseBloqueados),
       applyScope(baseConfirmados),
     ]);
 
-    if (rPend.error || rExp.error || rCf.error) {
-      setError(rPend.error?.message || rExp.error?.message || rCf.error?.message || "Falha");
+    if (rPend.error || rExpData.error || rSemExp.error || rBloq.error || rCf.error) {
+      setError(
+        rPend.error?.message ||
+          rExpData.error?.message ||
+          rSemExp.error?.message ||
+          rBloq.error?.message ||
+          rCf.error?.message ||
+          "Falha",
+      );
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
       setLoading(false);
       return;
     }
 
     const pendentesById = new Map<string, InscricaoPendente>();
-    for (const r of ([...((rPend.data as any[]) ?? []), ...((rExp.data as any[]) ?? [])])) {
+    for (const r of [
+      ...((rPend.data as any[]) ?? []),
+      ...((rExpData.data as any[]) ?? []),
+      ...((rSemExp.data as any[]) ?? []),
+      ...((rBloq.data as any[]) ?? []),
+    ]) {
       const mapped = mapRow(r, nomeByCod);
       if (statusPermiteValidacao(mapped.status)) pendentesById.set(mapped.id, mapped);
     }
