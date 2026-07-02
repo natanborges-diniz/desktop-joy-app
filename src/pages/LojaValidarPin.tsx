@@ -303,7 +303,7 @@ function PinCardExpirado({
 
   const motivoBadge = tentativas >= 3 && !expirado ? "3 tentativas erradas" : expirado && item.pin_expira_at ? `Expirou há ${tempoDesde(item.pin_expira_at)}` : "Bloqueado";
 
-  const cashback = item.credito?.valor ?? (item.valor_total_informado ?? 0) * 0.05;
+  const cashback = item.credito?.valor ?? null;
 
   async function reenviar() {
     setReenviando(true);
