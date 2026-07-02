@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useLojasDoUsuario } from "@/hooks/useLojasDoUsuario";
+import { normalizarNomeLoja } from "@/lib/cashbackLoja";
 
 type LojaBadges = { demandas: number; os: number };
 
@@ -65,10 +66,10 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       setBadges({});
       return;
     }
-    // Atrium armazena loja_nome em MAIÚSCULAS na os_recebimento_loja.
-    const lojasUpper = lojas.map((l) => l.toUpperCase());
+    // Atrium armazena em MAIÚSCULAS com romanos ("PRIMITIVA I"). Normaliza.
+    const lojasUpper = lojas.map((l) => normalizarNomeLoja(l));
     const upperToOriginal = new Map<string, string>();
-    for (const l of lojas) upperToOriginal.set(l.toUpperCase(), l);
+    for (const l of lojas) upperToOriginal.set(normalizarNomeLoja(l), l);
 
     const [demResp, osResp] = await Promise.all([
       supabase
@@ -94,7 +95,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
     for (const r of ((osResp.data ?? []) as { loja_nome: string | null }[])) {
       const raw = r.loja_nome;
       if (!raw) continue;
-      const orig = upperToOriginal.get(raw.toUpperCase());
+      const orig = upperToOriginal.get(normalizarNomeLoja(raw));
       if (orig && map[orig]) map[orig].os += 1;
     }
     setBadges(map);
@@ -108,7 +109,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || lojas.length === 0) return;
     const filter = `loja_nome=in.(${lojas.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
-    const filterUpper = `loja_nome=in.(${lojas.map((l) => `"${l.toUpperCase().replace(/"/g, '\\"')}"`).join(",")})`;
+    const filterUpper = `loja_nome=in.(${lojas.map((l) => `"${normalizarNomeLoja(l).replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
       .channel(`filtro-loja-badges-${user.id}`)
       .on(

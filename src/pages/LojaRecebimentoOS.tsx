@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { normalizarNomeLoja } from "@/lib/cashbackLoja";
 
 type ProdutoItem = { tipo?: string | null; descricao?: string | null };
 type Preview = {
@@ -459,11 +460,10 @@ export default function LojaRecebimentoOS() {
   const [historico, setHistorico] = useState<HistoricoRow[]>([]);
   const [loadingHist, setLoadingHist] = useState(false);
 
-  // Atrium armazena loja_nome em MAIÚSCULAS.
-  // O filtro do app pode vir em Title Case ("Diniz Super Shopping"), então
-  // uppercase antes de comparar.
+  // Atrium armazena loja_nome em MAIÚSCULAS e com numerais romanos ("PRIMITIVA I").
+  // O filtro do app pode vir como "Primitiva 1" — normalizar antes de comparar.
   const lojasUpper = useMemo(
-    () => lojasFiltro.map((l) => l.toUpperCase()),
+    () => Array.from(new Set(lojasFiltro.map((l) => normalizarNomeLoja(l)))),
     [lojasFiltro],
   );
 
@@ -482,6 +482,11 @@ export default function LojaRecebimentoOS() {
     const { data, error } = await q;
     if (error) {
       console.error("[recebimento-os] loadHistorico:", error);
+    } else {
+      console.info("[recebimento-os] loadHistorico", {
+        lojasUpper,
+        rows: (data as any[] | null)?.length ?? 0,
+      });
     }
     setHistorico(((data as any) ?? []) as HistoricoRow[]);
     setLoadingHist(false);
