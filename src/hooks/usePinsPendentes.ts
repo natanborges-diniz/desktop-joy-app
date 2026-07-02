@@ -36,6 +36,41 @@ export type PinBuckets = {
 const SELECT_COLS =
   "id, nome_cliente, cpf, whatsapp, cod_empresa, numero_venda, valor_total_informado, pin_expira_at, pin_tentativas, pin_confirmado_at, status, criado_em";
 
+const STATUS_INATIVOS = new Set([
+  "cancelada",
+  "cancelado",
+  "inativa",
+  "inativo",
+  "finalizada",
+  "finalizado",
+  "excluida",
+  "excluido",
+]);
+
+function statusPermiteValidacao(status: string | null | undefined) {
+  const key = String(status ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  return !STATUS_INATIVOS.has(key);
+}
+
+function variantesCodEmpresa(cod: string) {
+  const raw = String(cod).trim();
+  const out = new Set<string>();
+  if (raw) out.add(raw);
+
+  const n = Number(raw);
+  if (Number.isFinite(n)) {
+    const semZeros = String(n);
+    out.add(semZeros);
+    out.add(semZeros.padStart(2, "0"));
+    out.add(semZeros.padStart(3, "0"));
+  }
+  return [...out];
+}
+
 function mapRow(r: any, nomeByCod: Map<string, string>): InscricaoPendente {
   const cod = r.cod_empresa != null ? String(r.cod_empresa) : null;
   return {
@@ -130,7 +165,7 @@ export function usePinsPendentes() {
       const nomeNormalizado = normalizarNomeLoja(nomeLoja);
       nomeByCod.set(cod, nomeLoja);
       if (!acessoTotal && nomesRestritosSet.has(nomeNormalizado)) {
-        codsRestritos.add(cod);
+        for (const variante of variantesCodEmpresa(cod)) codsRestritos.add(variante);
       }
     }
 
@@ -152,19 +187,30 @@ export function usePinsPendentes() {
     setEscopoCods(codsEmpresa ? new Set(codsEmpresa) : null);
 
     const now = new Date();
+    const nowIso = now.toISOString();
     const nowMs = now.getTime();
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const startOfDayIso = startOfDay.toISOString();
 
-    // 3) Queries paralelas
+    // 3) Queries paralelas. Não filtramos `status = ativa` no servidor porque há
+    // registros legados válidos para PIN com status divergente; filtramos apenas
+    // status explicitamente encerrados no cliente. A query direta de expirados
+    // evita que um limite geral esconda PINs antigos que precisam de reenvio.
     const basePendentes = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
-      .eq("status", "ativa")
       .is("pin_confirmado_at", null)
       .order("criado_em", { ascending: false })
-      .limit(2000);
+      .limit(3000);
+
+    const baseExpirados = supabase
+      .from("regua_inscricao" as any)
+      .select(SELECT_COLS)
+      .is("pin_confirmado_at", null)
+      .or(`pin_expira_at.lte.${nowIso},pin_expira_at.is.null,pin_tentativas.gte.3`)
+      .order("criado_em", { ascending: false })
+      .limit(1000);
 
     const baseConfirmados = supabase
       .from("regua_inscricao" as any)
@@ -175,19 +221,26 @@ export function usePinsPendentes() {
 
     const applyScope = (q: any) => (codsEmpresa ? q.in("cod_empresa", codsEmpresa) : q);
 
-    const [rPend, rCf] = await Promise.all([
+    const [rPend, rExp, rCf] = await Promise.all([
       applyScope(basePendentes),
+      applyScope(baseExpirados),
       applyScope(baseConfirmados),
     ]);
 
-    if (rPend.error || rCf.error) {
-      setError(rPend.error?.message || rCf.error?.message || "Falha");
+    if (rPend.error || rExp.error || rCf.error) {
+      setError(rPend.error?.message || rExp.error?.message || rCf.error?.message || "Falha");
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
       setLoading(false);
       return;
     }
 
-    const pendentes = ((rPend.data as any[]) ?? []).map((r) => mapRow(r, nomeByCod));
+    const pendentesById = new Map<string, InscricaoPendente>();
+    for (const r of ([...((rPend.data as any[]) ?? []), ...((rExp.data as any[]) ?? [])])) {
+      const mapped = mapRow(r, nomeByCod);
+      if (statusPermiteValidacao(mapped.status)) pendentesById.set(mapped.id, mapped);
+    }
+    const pendentes = [...pendentesById.values()];
+
     const aguardando = pendentes.filter((r) => {
       const expMs = r.pin_expira_at ? Date.parse(r.pin_expira_at) : Number.NaN;
       return Number.isFinite(expMs) && expMs > nowMs && (r.pin_tentativas ?? 0) < 3;
