@@ -215,7 +215,7 @@ export function usePinsPendentes() {
 
     setBuckets({ aguardando, expirados, confirmadosHoje });
     setLoading(false);
-  }, [user]);
+  }, [user, profile]);
 
   useEffect(() => {
     void load();
