@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useFiltroLoja } from "@/context/FiltroLojaContext";
+import { normalizarNomeLoja } from "@/lib/cashbackLoja";
 
 const QUATRO_HORAS_MS = 4 * 60 * 60 * 1000;
 
@@ -12,7 +13,10 @@ const QUATRO_HORAS_MS = 4 * 60 * 60 * 1000;
 export function useOsRecebidasPendentes() {
   const { user } = useAuth();
   const { lojasFiltro } = useFiltroLoja();
-  const lojasUpper = useMemo(() => lojasFiltro.map((l) => l.toUpperCase()), [lojasFiltro]);
+  const lojasUpper = useMemo(
+    () => Array.from(new Set(lojasFiltro.map((l) => normalizarNomeLoja(l)))),
+    [lojasFiltro],
+  );
   const [count, setCount] = useState(0);
 
   const recomputar = useCallback(async () => {
