@@ -66,10 +66,10 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
       setBadges({});
       return;
     }
-    // Atrium armazena loja_nome em MAIÚSCULAS na os_recebimento_loja.
-    const lojasUpper = lojas.map((l) => l.toUpperCase());
+    // Atrium armazena em MAIÚSCULAS com romanos ("PRIMITIVA I"). Normaliza.
+    const lojasUpper = lojas.map((l) => normalizarNomeLoja(l));
     const upperToOriginal = new Map<string, string>();
-    for (const l of lojas) upperToOriginal.set(l.toUpperCase(), l);
+    for (const l of lojas) upperToOriginal.set(normalizarNomeLoja(l), l);
 
     const [demResp, osResp] = await Promise.all([
       supabase
