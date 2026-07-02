@@ -347,6 +347,11 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
   const badge = status ? WA_BADGE[status] : null;
   const agendou = !!row.agendamento_id;
   const falhou = status === "failed" || status === "no_dispatch";
+  const semTelefone =
+    status === "no_dispatch" &&
+    /telefone|phone|sem\s+contato|sem\s+n[úu]mero|no_phone|missing_phone/i.test(
+      row.wa_status_reason ?? "",
+    );
   const sentTs = row.notificado_cliente_at ?? (status === "sent" ? row.wa_status_at : null);
   const deliveredTs = status === "delivered" || status === "read" ? row.wa_status_at : null;
   const readTs = status === "read" ? row.wa_status_at : null;
