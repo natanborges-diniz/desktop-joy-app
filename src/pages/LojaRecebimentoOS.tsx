@@ -13,6 +13,7 @@ import {
   XCircle,
   Send,
   RefreshCw,
+  Phone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
