@@ -168,7 +168,7 @@ export function usePinsPendentes() {
       const nomeLoja = String(l.nome_loja).trim();
       const cod = String(l.cod_empresa);
       const nomeNormalizado = normalizarNomeLoja(nomeLoja);
-      nomeByCod.set(cod, nomeLoja);
+      for (const variante of variantesCodEmpresa(cod)) nomeByCod.set(variante, nomeLoja);
       if (!acessoTotal && nomesRestritosSet.has(nomeNormalizado)) {
         for (const variante of variantesCodEmpresa(cod)) codsRestritos.add(variante);
       }
