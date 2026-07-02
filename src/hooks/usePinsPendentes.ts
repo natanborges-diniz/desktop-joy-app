@@ -66,12 +66,14 @@ export function usePinsPendentes() {
   });
   const [nomeByCodState, setNomeByCodState] = useState<Map<string, string>>(new Map());
   const [escopoCods, setEscopoCods] = useState<Set<string> | null>(null);
+  const [aplicarFiltroLoja, setAplicarFiltroLoja] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) {
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
+      setAplicarFiltroLoja(false);
       setLoading(false);
       return;
     }
@@ -98,21 +100,18 @@ export function usePinsPendentes() {
     const nomes: string[] = Array.isArray(acesso?.lojas)
       ? (acesso.lojas as string[]).filter((n) => typeof n === "string" && n.trim())
       : [];
+    setAplicarFiltroLoja(!acessoTotal && nomes.length > 0);
 
-    // 2) Mapear nome -> cod_empresa
+    // 2) Mapear nome -> cod_empresa. Só aplica filtro quando há lojas restritas.
     const nomeByCod = new Map<string, string>();
     let codsEmpresa: string[] | null = null;
+    const nomesRestritos = nomes.map((n) => normalizarNomeLoja(n));
+    const nomesRestritosSet = new Set(nomesRestritos);
 
-    const tlQuery = supabase
+    const { data: tl, error: tlErr } = await supabase
       .from("telefones_lojas" as any)
-      .select("cod_empresa, nome_loja")
-      .eq("tipo", "loja")
-      .eq("ativo", true);
-    const { data: tl, error: tlErr } = acessoTotal
-      ? await tlQuery.limit(2000)
-      : nomes.length > 0
-      ? await tlQuery.in("nome_loja", nomes)
-      : { data: [], error: null };
+      .select("cod_empresa, nome_loja, tipo, ativo")
+      .limit(5000);
 
     if (tlErr) {
       setError(tlErr.message);
@@ -120,12 +119,23 @@ export function usePinsPendentes() {
       setLoading(false);
       return;
     }
+    const codsRestritos = new Set<string>();
     for (const l of (tl as any[] | null) ?? []) {
       if (l?.cod_empresa == null || !l?.nome_loja) continue;
-      nomeByCod.set(String(l.cod_empresa), String(l.nome_loja).trim());
+      if (l?.ativo === false) continue;
+      const tipo = String(l?.tipo ?? "loja").toLowerCase();
+      if (tipo && tipo !== "loja") continue;
+      const nomeLoja = String(l.nome_loja).trim();
+      const cod = String(l.cod_empresa);
+      const nomeNormalizado = normalizarNomeLoja(nomeLoja);
+      nomeByCod.set(cod, nomeLoja);
+      if (!acessoTotal && nomesRestritosSet.has(nomeNormalizado)) {
+        codsRestritos.add(cod);
+      }
     }
-    if (!acessoTotal) {
-      codsEmpresa = [...new Set(nomeByCod.keys())];
+
+    if (!acessoTotal && nomes.length > 0) {
+      codsEmpresa = [...codsRestritos];
       if (codsEmpresa.length === 0) {
         setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
         setEscopoCods(new Set());
@@ -133,36 +143,28 @@ export function usePinsPendentes() {
         setLoading(false);
         return;
       }
+    } else {
+      codsEmpresa = null;
     }
 
 
     setNomeByCodState(nomeByCod);
     setEscopoCods(codsEmpresa ? new Set(codsEmpresa) : null);
 
-    const nowIso = new Date().toISOString();
+    const now = new Date();
+    const nowMs = now.getTime();
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const startOfDayIso = startOfDay.toISOString();
 
     // 3) Queries paralelas
-    const baseAguardando = supabase
+    const basePendentes = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
       .eq("status", "ativa")
       .is("pin_confirmado_at", null)
-      .not("pin_hash", "is", null)
-      .gt("pin_expira_at", nowIso)
-      .lt("pin_tentativas", 3)
-      .order("criado_em", { ascending: false });
-
-    const baseExpirados = supabase
-      .from("regua_inscricao" as any)
-      .select(SELECT_COLS)
-      .eq("status", "ativa")
-      .is("pin_confirmado_at", null)
-      .or(`pin_expira_at.lte.${nowIso},pin_tentativas.gte.3`)
       .order("criado_em", { ascending: false })
-      .limit(200);
+      .limit(2000);
 
     const baseConfirmados = supabase
       .from("regua_inscricao" as any)
@@ -173,21 +175,27 @@ export function usePinsPendentes() {
 
     const applyScope = (q: any) => (codsEmpresa ? q.in("cod_empresa", codsEmpresa) : q);
 
-    const [rAg, rEx, rCf] = await Promise.all([
-      applyScope(baseAguardando),
-      applyScope(baseExpirados),
+    const [rPend, rCf] = await Promise.all([
+      applyScope(basePendentes),
       applyScope(baseConfirmados),
     ]);
 
-    if (rAg.error || rEx.error || rCf.error) {
-      setError(rAg.error?.message || rEx.error?.message || rCf.error?.message || "Falha");
+    if (rPend.error || rCf.error) {
+      setError(rPend.error?.message || rCf.error?.message || "Falha");
       setBuckets({ aguardando: [], expirados: [], confirmadosHoje: [] });
       setLoading(false);
       return;
     }
 
-    const aguardando = ((rAg.data as any[]) ?? []).map((r) => mapRow(r, nomeByCod));
-    const expirados = ((rEx.data as any[]) ?? []).map((r) => mapRow(r, nomeByCod));
+    const pendentes = ((rPend.data as any[]) ?? []).map((r) => mapRow(r, nomeByCod));
+    const aguardando = pendentes.filter((r) => {
+      const expMs = r.pin_expira_at ? Date.parse(r.pin_expira_at) : Number.NaN;
+      return Number.isFinite(expMs) && expMs > nowMs && (r.pin_tentativas ?? 0) < 3;
+    });
+    const expirados = pendentes.filter((r) => {
+      const expMs = r.pin_expira_at ? Date.parse(r.pin_expira_at) : Number.NaN;
+      return !Number.isFinite(expMs) || expMs <= nowMs || (r.pin_tentativas ?? 0) >= 3;
+    });
     const confirmadosHoje = ((rCf.data as any[]) ?? []).map((r) => mapRow(r, nomeByCod));
 
     // 4) Join cashback_credito para confirmados
@@ -243,6 +251,7 @@ export function usePinsPendentes() {
 
   const filtrarPorLoja = useCallback(
     (list: InscricaoPendente[]) => {
+      if (!aplicarFiltroLoja) return list;
       if (!lojaSelecionada) return list;
       const lojaKey = normalizarNomeLoja(lojaSelecionada);
       const mapeados = list.filter(
@@ -250,7 +259,7 @@ export function usePinsPendentes() {
       );
       return mapeados.length > 0 ? mapeados : list.filter((r) => !r.loja_nome);
     },
-    [lojaSelecionada],
+    [aplicarFiltroLoja, lojaSelecionada],
   );
 
   const aguardando = useMemo(() => filtrarPorLoja(buckets.aguardando), [buckets.aguardando, filtrarPorLoja]);
