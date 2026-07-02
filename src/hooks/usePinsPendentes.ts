@@ -56,6 +56,11 @@ function statusPermiteValidacao(status: string | null | undefined) {
   return !STATUS_INATIVOS.has(key);
 }
 
+function pinAindaNaoConfirmado(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  return raw.length === 0;
+}
+
 function variantesCodEmpresa(cod: string) {
   const raw = String(cod).trim();
   const out = new Set<string>();
@@ -200,14 +205,12 @@ export function usePinsPendentes() {
     const basePendentes = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
-      .is("pin_confirmado_at", null)
       .order("criado_em", { ascending: false })
       .limit(3000);
 
     const baseExpiradosPorData = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
-      .is("pin_confirmado_at", null)
       .lte("pin_expira_at", nowIso)
       .order("pin_expira_at", { ascending: false })
       .limit(3000);
@@ -215,7 +218,6 @@ export function usePinsPendentes() {
     const baseSemExpiracao = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
-      .is("pin_confirmado_at", null)
       .is("pin_expira_at", null)
       .order("criado_em", { ascending: false })
       .limit(1000);
@@ -223,7 +225,6 @@ export function usePinsPendentes() {
     const baseBloqueados = supabase
       .from("regua_inscricao" as any)
       .select(SELECT_COLS)
-      .is("pin_confirmado_at", null)
       .gte("pin_tentativas", 3)
       .order("criado_em", { ascending: false })
       .limit(1000);
@@ -267,7 +268,9 @@ export function usePinsPendentes() {
       ...((rBloq.data as any[]) ?? []),
     ]) {
       const mapped = mapRow(r, nomeByCod);
-      if (statusPermiteValidacao(mapped.status)) pendentesById.set(mapped.id, mapped);
+      if (pinAindaNaoConfirmado(mapped.pin_confirmado_at) && statusPermiteValidacao(mapped.status)) {
+        pendentesById.set(mapped.id, mapped);
+      }
     }
     const pendentes = [...pendentesById.values()];
 
