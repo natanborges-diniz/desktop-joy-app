@@ -347,6 +347,11 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
   const badge = status ? WA_BADGE[status] : null;
   const agendou = !!row.agendamento_id;
   const falhou = status === "failed" || status === "no_dispatch";
+  const semTelefone =
+    status === "no_dispatch" &&
+    /telefone|phone|sem\s+contato|sem\s+n[úu]mero|no_phone|missing_phone/i.test(
+      row.wa_status_reason ?? "",
+    );
   const sentTs = row.notificado_cliente_at ?? (status === "sent" ? row.wa_status_at : null);
   const deliveredTs = status === "delivered" || status === "read" ? row.wa_status_at : null;
   const readTs = status === "read" ? row.wa_status_at : null;
@@ -417,17 +422,25 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
           <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
             <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <div className="min-w-0 flex-1">
-              <div className="font-medium text-foreground">Cliente NÃO foi avisado</div>
-              {row.wa_status_reason && (
-                <div className="mt-0.5 break-words text-xs text-muted-foreground">
-                  {row.wa_status_reason}
+              <div className="font-medium text-foreground">
+                {semTelefone ? "Cliente sem telefone cadastrado" : "Cliente NÃO foi avisado"}
+              </div>
+              {semTelefone ? (
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  Não há número de WhatsApp no cadastro desta cliente no Atrium. Cadastre o telefone e o aviso poderá ser reenviado — ou contate a cliente por outro canal.
                 </div>
+              ) : (
+                row.wa_status_reason && (
+                  <div className="mt-0.5 break-words text-xs text-muted-foreground">
+                    {row.wa_status_reason}
+                  </div>
+                )
               )}
             </div>
           </div>
         )}
 
-        {(falhou || (status === "sent" && !readTs)) && (
+        {!semTelefone && (falhou || (status === "sent" && !readTs)) && (
           <Button
             variant={falhou ? "destructive" : "outline"}
             size="sm"
