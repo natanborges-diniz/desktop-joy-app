@@ -109,7 +109,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || lojas.length === 0) return;
     const filter = `loja_nome=in.(${lojas.map((l) => `"${l.replace(/"/g, '\\"')}"`).join(",")})`;
-    const filterUpper = `loja_nome=in.(${lojas.map((l) => `"${l.toUpperCase().replace(/"/g, '\\"')}"`).join(",")})`;
+    const filterUpper = `loja_nome=in.(${lojas.map((l) => `"${normalizarNomeLoja(l).replace(/"/g, '\\"')}"`).join(",")})`;
     const ch = supabase
       .channel(`filtro-loja-badges-${user.id}`)
       .on(
