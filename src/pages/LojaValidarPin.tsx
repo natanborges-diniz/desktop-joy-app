@@ -259,10 +259,12 @@ function PinCardAguardando({
             <span className="font-medium">{tempoDe(item.pin_expira_at)}</span>
           </div>
         )}
-        {item.valor_total_informado != null && (
+        {(item.credito?.valor != null || item.valor_total_informado != null) && (
           <div>
             <span className="text-muted-foreground">Cashback: </span>
-            <span className="font-medium">{brl(item.valor_total_informado * 0.05)}</span>
+            <span className="font-medium">
+              {brl(item.credito?.valor ?? (item.valor_total_informado ?? 0) * 0.05)}
+            </span>
           </div>
         )}
       </div>
@@ -303,7 +305,7 @@ function PinCardExpirado({
 
   const motivoBadge = tentativas >= 3 && !expirado ? "3 tentativas erradas" : expirado && item.pin_expira_at ? `Expirou há ${tempoDesde(item.pin_expira_at)}` : "Bloqueado";
 
-  const cashback = (item.valor_total_informado ?? 0) * 0.05;
+  const cashback = item.credito?.valor ?? (item.valor_total_informado ?? 0) * 0.05;
 
   async function reenviar() {
     setReenviando(true);
