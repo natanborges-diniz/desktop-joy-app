@@ -231,8 +231,12 @@ export function usePinsPendentes() {
 
   useEffect(() => {
     if (!user) return;
+    const uniq =
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
     const ch = supabase
-      .channel(`regua-inscricao-pins-${user.id}-${Date.now()}`)
+      .channel(`regua-inscricao-pins-${user.id}-${uniq}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "regua_inscricao" },
