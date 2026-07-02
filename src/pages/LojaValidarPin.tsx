@@ -393,7 +393,7 @@ function PinCardExpirado({
 
 function PinCardConfirmado({ item }: { item: InscricaoPendente }) {
   const credito = item.credito;
-  const valor = credito?.valor ?? (item.valor_total_informado != null ? item.valor_total_informado * 0.05 : null);
+  const valor = credito?.valor ?? null;
   const libera = credito?.libera_em;
   let liberaFmt = "";
   if (libera) {
