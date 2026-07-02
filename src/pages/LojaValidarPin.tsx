@@ -10,8 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const BRL = (v: number | null | undefined) =>
-  (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function tempoDe(s: string) {
   try {
