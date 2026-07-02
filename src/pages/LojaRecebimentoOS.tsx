@@ -355,7 +355,7 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
     setResending(true);
     try {
       const { data, error } = await supabase.functions.invoke("confirmar-recebimento-os", {
-        body: { action: "resend", os_numero: row.os_numero ?? row.numero_os, loja_nome: row.loja_nome },
+        body: { action: "resend", os_numero: row.os_numero, loja_nome: row.loja_nome },
       });
       if (error) throw error;
       if (data && typeof data === "object" && (data as any).error) {
