@@ -13,6 +13,7 @@ import {
   XCircle,
   Send,
   RefreshCw,
+  Phone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
@@ -341,8 +342,24 @@ function TrackLine({
   );
 }
 
+function formatarTelefoneBR(input: string) {
+  const d = input.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function telefoneValido(input: string) {
+  const d = input.replace(/\D/g, "");
+  return d.length === 10 || d.length === 11;
+}
+
 function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () => void }) {
   const [resending, setResending] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [telefone, setTelefone] = useState("");
+  const [salvando, setSalvando] = useState(false);
   const status = row.wa_status;
   const badge = status ? WA_BADGE[status] : null;
   const agendou = !!row.agendamento_id;
@@ -372,6 +389,39 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
       toast.error("Falha ao reenviar aviso", { description: err?.message ?? "Tente novamente." });
     } finally {
       setResending(false);
+    }
+  }
+
+  async function salvarTelefone() {
+    const digits = telefone.replace(/\D/g, "");
+    if (!telefoneValido(digits)) {
+      toast.error("Telefone inválido", { description: "Use DDD + número (10 ou 11 dígitos)." });
+      return;
+    }
+    setSalvando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("atualizar-telefone-cliente", {
+        body: {
+          os_numero: row.os_numero,
+          loja_nome: row.loja_nome,
+          telefone: digits,
+          reenviar: true,
+        },
+      });
+      if (error) throw error;
+      if (data && typeof data === "object" && (data as any).error) {
+        throw new Error(String((data as any).error));
+      }
+      toast.success("Telefone atualizado", { description: "Aviso reenviado ao cliente." });
+      setEditando(false);
+      setTelefone("");
+      onChanged();
+    } catch (err: any) {
+      toast.error("Falha ao atualizar telefone", {
+        description: err?.message ?? "Tente novamente.",
+      });
+    } finally {
+      setSalvando(false);
     }
   }
 
@@ -427,7 +477,7 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
               </div>
               {semTelefone ? (
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  Não há número de WhatsApp no cadastro desta cliente no Atrium. Cadastre o telefone e o aviso poderá ser reenviado — ou contate a cliente por outro canal.
+                  Cadastre o telefone da cliente para reenviar o aviso.
                 </div>
               ) : (
                 row.wa_status_reason && (
@@ -440,9 +490,42 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
           </div>
         )}
 
-        {!semTelefone && (falhou || (status === "sent" && !readTs)) && (
+        {falhou && !editando && (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant={semTelefone ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() => setEditando(true)}
+            >
+              <Phone className="h-4 w-4" />
+              {semTelefone ? "Cadastrar telefone" : "Corrigir telefone"}
+            </Button>
+            {!semTelefone && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex-1"
+                onClick={reenviar}
+                disabled={resending}
+              >
+                {resending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Reenviando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" /> Reenviar aviso
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!falhou && status === "sent" && !readTs && (
           <Button
-            variant={falhou ? "destructive" : "outline"}
+            variant="outline"
             size="sm"
             className="w-full"
             onClick={reenviar}
@@ -458,6 +541,54 @@ function HistoricoCard({ row, onChanged }: { row: HistoricoRow; onChanged: () =>
               </>
             )}
           </Button>
+        )}
+
+        {falhou && editando && (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+            <label className="text-xs font-medium text-muted-foreground">
+              Telefone do WhatsApp (com DDD)
+            </label>
+            <Input
+              inputMode="tel"
+              autoFocus
+              placeholder="(11) 91234-5678"
+              value={telefone}
+              onChange={(e) => setTelefone(formatarTelefoneBR(e.target.value))}
+              disabled={salvando}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Será gravado no cadastro do cliente no Atrium e o aviso da OS será reenviado.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={salvarTelefone}
+                disabled={salvando || !telefoneValido(telefone)}
+              >
+                {salvando ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Salvando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> Salvar e reenviar
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditando(false);
+                  setTelefone("");
+                }}
+                disabled={salvando}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
