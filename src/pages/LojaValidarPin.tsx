@@ -259,12 +259,10 @@ function PinCardAguardando({
             <span className="font-medium">{tempoDe(item.pin_expira_at)}</span>
           </div>
         )}
-        {(item.credito?.valor != null || item.valor_total_informado != null) && (
+        {item.credito?.valor != null && (
           <div>
             <span className="text-muted-foreground">Cashback: </span>
-            <span className="font-medium">
-              {brl(item.credito?.valor ?? (item.valor_total_informado ?? 0) * 0.05)}
-            </span>
+            <span className="font-medium">{brl(item.credito.valor)}</span>
           </div>
         )}
       </div>
