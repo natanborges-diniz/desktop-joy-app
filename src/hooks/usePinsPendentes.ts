@@ -57,7 +57,7 @@ function mapRow(r: any, nomeByCod: Map<string, string>): InscricaoPendente {
 }
 
 export function usePinsPendentes() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { lojaSelecionada, lojasDoUsuario } = useFiltroLoja();
   const [buckets, setBuckets] = useState<PinBuckets>({
     aguardando: [],
@@ -78,15 +78,25 @@ export function usePinsPendentes() {
     setLoading(true);
     setError(null);
 
-    // 1) Escopo do usuario
-    const { data: acesso } = await supabase
-      .from("user_acessos" as any)
-      .select("lojas, acesso_total")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const acessoTotal = (acesso as any)?.acesso_total === true;
-    const nomes: string[] = Array.isArray((acesso as any)?.lojas)
-      ? ((acesso as any).lojas as string[]).filter((n) => typeof n === "string" && n.trim())
+    // 1) Escopo do usuario — user_acessos + fallback admin/user_roles
+    const [acessoRes, rolesRes] = await Promise.all([
+      supabase
+        .from("user_acessos" as any)
+        .select("lojas, acesso_total")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", user.id),
+    ]);
+    const acesso = acessoRes.data as any;
+    const roles = ((rolesRes.data as any[]) ?? []).map((r) => String(r?.role ?? "").toLowerCase());
+    const isAdminRole =
+      roles.includes("admin") ||
+      roles.includes("superadmin") ||
+      String((profile as any)?.tipo_usuario ?? "").toLowerCase() === "admin";
+    // Sem linha em user_acessos + role admin (ou tipo_usuario admin) => acesso total
+    const acessoTotal = acesso?.acesso_total === true || (!acesso && isAdminRole) || isAdminRole;
+    const nomes: string[] = Array.isArray(acesso?.lojas)
+      ? (acesso.lojas as string[]).filter((n) => typeof n === "string" && n.trim())
       : [];
 
     // 2) Mapear nome -> cod_empresa
@@ -100,7 +110,9 @@ export function usePinsPendentes() {
       .eq("ativo", true);
     const { data: tl, error: tlErr } = acessoTotal
       ? await tlQuery.limit(2000)
-      : await tlQuery.in("nome_loja", nomes);
+      : nomes.length > 0
+      ? await tlQuery.in("nome_loja", nomes)
+      : { data: [], error: null };
 
     if (tlErr) {
       setError(tlErr.message);
@@ -122,6 +134,7 @@ export function usePinsPendentes() {
         return;
       }
     }
+
 
     setNomeByCodState(nomeByCod);
     setEscopoCods(codsEmpresa ? new Set(codsEmpresa) : null);
