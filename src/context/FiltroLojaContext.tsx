@@ -95,7 +95,7 @@ export function FiltroLojaProvider({ children }: { children: ReactNode }) {
     for (const r of ((osResp.data ?? []) as { loja_nome: string | null }[])) {
       const raw = r.loja_nome;
       if (!raw) continue;
-      const orig = upperToOriginal.get(raw.toUpperCase());
+      const orig = upperToOriginal.get(normalizarNomeLoja(raw));
       if (orig && map[orig]) map[orig].os += 1;
     }
     setBadges(map);
