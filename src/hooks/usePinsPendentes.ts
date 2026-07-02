@@ -84,7 +84,7 @@ function mapRow(r: any, nomeByCod: Map<string, string>): InscricaoPendente {
     cpf: r.cpf ?? null,
     whatsapp: r.whatsapp ?? null,
     cod_empresa: cod,
-    loja_nome: cod ? nomeByCod.get(cod) ?? null : null,
+    loja_nome: r.loja_nome ?? (cod ? nomeByCod.get(cod) ?? null : null),
     numero_venda: r.numero_venda ?? null,
     valor_total_informado:
       r.valor_total_informado != null ? Number(r.valor_total_informado) : null,
@@ -94,6 +94,16 @@ function mapRow(r: any, nomeByCod: Map<string, string>): InscricaoPendente {
     status: r.status ?? null,
     criado_em: r.criado_em,
   };
+}
+
+function edgeBucketsOk(data: any) {
+  const src = data?.buckets ?? data;
+  return (
+    (data?.status === "ok" || data?.ok === true || data?.buckets) &&
+    Array.isArray(src?.aguardando) &&
+    Array.isArray(src?.expirados) &&
+    Array.isArray(src?.confirmadosHoje)
+  );
 }
 
 export function usePinsPendentes() {
@@ -190,6 +200,32 @@ export function usePinsPendentes() {
 
     setNomeByCodState(nomeByCod);
     setEscopoCods(codsEmpresa ? new Set(codsEmpresa) : null);
+
+    // Preferimos a Edge Function porque ela usa o backend com service-role para
+    // listar PINs dentro do escopo da loja. A tabela tem PII e, no Atrium, RLS
+    // pode ocultar tudo para usuário de loja quando consultada direto no browser.
+    try {
+      const { data: edgeData, error: edgeErr } = await supabase.functions.invoke("cashback-loja", {
+        body: {
+          action: "listar_pins_validacao",
+          loja_nome: lojaSelecionada ?? null,
+        },
+      });
+
+      if (!edgeErr && edgeBucketsOk(edgeData)) {
+        const src = (edgeData as any).buckets ?? edgeData;
+        setBuckets({
+          aguardando: src.aguardando.map((r: any) => mapRow(r, nomeByCod)),
+          expirados: src.expirados.map((r: any) => mapRow(r, nomeByCod)),
+          confirmadosHoje: src.confirmadosHoje.map((r: any) => mapRow(r, nomeByCod)),
+        });
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Compat: enquanto a EF legada não tiver a ação listar_pins_validacao,
+      // cai para a leitura direta existente.
+    }
 
     const now = new Date();
     const nowIso = now.toISOString();
@@ -309,7 +345,7 @@ export function usePinsPendentes() {
 
     setBuckets({ aguardando, expirados, confirmadosHoje });
     setLoading(false);
-  }, [user, profile]);
+  }, [user, profile, lojaSelecionada]);
 
   useEffect(() => {
     void load();
