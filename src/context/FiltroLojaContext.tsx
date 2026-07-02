@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/auth-context";
 import { useLojasDoUsuario } from "@/hooks/useLojasDoUsuario";
+import { normalizarNomeLoja } from "@/lib/cashbackLoja";
 
 type LojaBadges = { demandas: number; os: number };
 
