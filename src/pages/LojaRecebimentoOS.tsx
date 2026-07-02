@@ -49,12 +49,9 @@ type WaStatus = "sent" | "delivered" | "read" | "failed" | "no_dispatch" | null;
 type HistoricoRow = {
   id: string;
   os_numero: string | null;
-  numero_os?: string | null;
   cliente_nome: string | null;
-  produto: string | null;
   loja_nome: string | null;
   recebido_at: string | null;
-  recebido_por_nome: string | null;
   notificado_cliente_at: string | null;
   wa_status: WaStatus;
   wa_status_at: string | null;
