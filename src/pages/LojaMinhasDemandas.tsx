@@ -415,40 +415,55 @@ function DetalheSolicitacao({
           <div className="flex h-32 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
-        ) : coments.length === 0 ? (
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Sem comentários ainda.
-          </p>
-        ) : (
-          coments.map((c) => {
-            const meu = c.autor_id === user?.id;
+        ) : (() => {
+          const visiveis = coments.filter(
+            (c) => c.tipo === "retorno_setor" || c.tipo === "resposta_loja",
+          );
+          if (visiveis.length === 0) {
+            return (
+              <p className="mt-6 text-center text-xs text-muted-foreground">
+                Sem mensagens do setor ainda.
+              </p>
+            );
+          }
+          return visiveis.map((c) => {
+            const daLoja = c.tipo === "resposta_loja";
             return (
               <div
                 key={c.id}
-                className={`flex ${meu ? "justify-end" : "justify-start"}`}
+                className={`flex ${daLoja ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-soft ${
-                    meu
+                    daLoja
                       ? "bg-primary text-primary-foreground"
-                      : "bg-card text-foreground"
+                      : "bg-card text-foreground border border-border"
                   }`}
                 >
-                  {!meu && (
-                    <p className="mb-0.5 text-[11px] font-semibold opacity-80">
-                      {c.autor_nome ?? "Operador"}
-                    </p>
-                  )}
+                  <div className="mb-0.5 flex items-center gap-1.5">
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                        daLoja
+                          ? "bg-success/20 text-success-foreground"
+                          : "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                      }`}
+                    >
+                      {daLoja ? "Você" : "Setor"}
+                    </span>
+                    <span className="text-[11px] font-semibold opacity-80">
+                      {c.autor_nome ?? (daLoja ? "Loja" : "Operador")}
+                    </span>
+                  </div>
                   {c.conteudo && <p className="whitespace-pre-wrap">{c.conteudo}</p>}
-                  {c.anexo_url && <AnexoCard url={c.anexo_url} nome={c.anexo_nome} mime={c.anexo_mime} meu={meu} />}
+                  {c.anexo_url && <AnexoCard url={c.anexo_url} nome={c.anexo_nome} mime={c.anexo_mime} meu={daLoja} />}
                   <p className="mt-1 text-[10px] opacity-70">
                     {format(new Date(c.created_at), "d MMM HH:mm", { locale: ptBR })}
                   </p>
                 </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
 
       <div className="border-t border-border bg-card p-3">
