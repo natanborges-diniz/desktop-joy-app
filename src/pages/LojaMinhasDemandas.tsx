@@ -349,19 +349,20 @@ function DetalheSolicitacao({
   async function enviar() {
     if (!texto.trim() || !user) return;
     setEnviando(true);
-    const { error } = await supabase.from("solicitacao_comentarios").insert({
-      solicitacao_id: solicitacao.id,
-      tipo: "interno",
-      conteudo: texto.trim(),
-      autor_id: user.id,
-      autor_nome: profileNome,
+    const { error } = await supabase.functions.invoke("comentar-solicitacao", {
+      body: {
+        solicitacao_id: solicitacao.id,
+        conteudo: texto.trim(),
+        destino: "setor",
+      },
     });
     setEnviando(false);
     if (error) {
-      toast.error("Não foi possível enviar");
+      toast.error("Não foi possível enviar ao setor");
       return;
     }
     setTexto("");
+    void load();
   }
 
   return (
