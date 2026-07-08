@@ -472,14 +472,17 @@ function DetalheSolicitacao({
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             rows={2}
-            placeholder="Escreva um comentário..."
+            placeholder="Escreva uma resposta ao setor..."
             className="min-h-[44px] resize-none"
           />
-          <Button onClick={enviar} disabled={enviando || !texto.trim()} size="icon">
+          <Button onClick={enviar} disabled={enviando || !texto.trim()} className="gap-1.5">
             {enviando ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <>
+                <Send className="h-4 w-4" />
+                Responder ao setor
+              </>
             )}
           </Button>
         </div>
