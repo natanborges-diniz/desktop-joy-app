@@ -220,46 +220,100 @@ export default function LojaMinhasDemandas() {
           </div>
         ) : (
           <ul className="mx-auto grid max-w-3xl gap-3">
-            {items.map((s) => (
-              <li key={s.id}>
-                <Card
-                  className="cursor-pointer p-4 shadow-soft transition-shadow hover:shadow-elevated"
-                  onClick={() => setAberta(s)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
-                        {s.protocolo ?? "—"}
+            {items.map((s) => {
+              const m = (s.metadata ?? {}) as Record<string, any>;
+              const cliente: string | null =
+                m.cliente_nome ?? m.cliente ?? m.nome_cliente ?? m.dados?.cliente ?? null;
+              const cpfRaw: string | null = m.cpf ?? m.dados?.cpf ?? null;
+              const cpfMasc = cpfRaw
+                ? (() => {
+                    const d = String(cpfRaw).replace(/\D/g, "");
+                    return d.length === 11
+                      ? `${d.slice(0, 3)}.***.***-${d.slice(9)}`
+                      : String(cpfRaw);
+                  })()
+                : null;
+              const valorRaw = m.valor_total ?? m.dados?.valor_total ?? m.valor ?? null;
+              const valorNum =
+                typeof valorRaw === "number"
+                  ? valorRaw
+                  : typeof valorRaw === "string" && valorRaw
+                    ? Number(valorRaw.replace(",", "."))
+                    : null;
+              const valorFmt =
+                valorNum != null && Number.isFinite(valorNum)
+                  ? valorNum.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                  : null;
+              const parcelas = m.qtd_parcelas ?? m.dados?.qtd_parcelas ?? null;
+              const tipo: string | null = m.tipo ?? null;
+              const lojaLbl: string | null = m.alias_loja ?? m.loja_nome ?? null;
+              const venda: string | null = m.numero_venda ?? m.dados?.numero_venda ?? null;
+              return (
+                <li key={s.id}>
+                  <Card
+                    className="cursor-pointer p-4 shadow-soft transition-shadow hover:shadow-elevated"
+                    onClick={() => setAberta(s)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
+                            {s.protocolo ?? "—"}
+                          </span>
+                          {tipo && (
+                            <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] uppercase text-accent-foreground">
+                              {tipo}
+                            </span>
+                          )}
+                          {lojaLbl && lojasFiltro.length > 1 && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              {lojaLbl}
+                            </span>
+                          )}
+                        </div>
+                        <h2 className="mt-1 truncate font-semibold text-foreground">
+                          {cliente ?? s.assunto ?? "Sem assunto"}
+                        </h2>
+                        {cliente && s.assunto && (
+                          <p className="truncate text-xs text-muted-foreground">{s.assunto}</p>
+                        )}
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                          {cpfMasc && <span>CPF {cpfMasc}</span>}
+                          {valorFmt && (
+                            <span>
+                              {valorFmt}
+                              {parcelas ? ` · ${parcelas}x` : ""}
+                            </span>
+                          )}
+                          {venda && <span>Venda {venda}</span>}
+                        </div>
+                        {(() => {
+                          const col = Array.isArray(s.pipeline_colunas)
+                            ? s.pipeline_colunas[0]
+                            : s.pipeline_colunas;
+                          if (!col?.nome) return null;
+                          return (
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <span
+                                className="inline-block h-2 w-2 rounded-full"
+                                style={{ backgroundColor: col.cor ?? "#94a3b8" }}
+                              />
+                              {col.nome}
+                            </p>
+                          );
+                        })()}
+                      </div>
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
+                        {s.status ?? "—"}
                       </span>
-                      <h2 className="mt-1 truncate font-semibold text-foreground">
-                        {s.assunto ?? "Sem assunto"}
-                      </h2>
-                      {(() => {
-                        const col = Array.isArray(s.pipeline_colunas)
-                          ? s.pipeline_colunas[0]
-                          : s.pipeline_colunas;
-                        if (!col?.nome) return null;
-                        return (
-                          <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <span
-                              className="inline-block h-2 w-2 rounded-full"
-                              style={{ backgroundColor: col.cor ?? "#94a3b8" }}
-                            />
-                            {col.nome}
-                          </p>
-                        );
-                      })()}
                     </div>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
-                      {s.status ?? "—"}
-                    </span>
-                  </div>
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    {format(new Date(s.created_at), "d MMM yyyy 'às' HH:mm", { locale: ptBR })}
-                  </div>
-                </Card>
-              </li>
-            ))}
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      {format(new Date(s.created_at), "d MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
