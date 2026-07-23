@@ -33,6 +33,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+type ComprovantePagamento = {
+  url?: string | null;
+  anexo_url?: string | null;
+  mime?: string | null;
+  anexo_mime?: string | null;
+  nome_arquivo?: string | null;
+  anexo_nome?: string | null;
+  pago_em?: string | null;
+  data?: string | null;
+  valor_pago?: number | string | null;
+  valor?: number | string | null;
+  forma?: string | null;
+  metodo?: string | null;
+  nsu?: string | null;
+  bandeira?: string | null;
+  [k: string]: unknown;
+};
+
 type SolicitacaoMeta = {
   boleto_status?: string | null;
   boleto_revisao?: { ciclo?: number } | null;
@@ -42,6 +60,7 @@ type SolicitacaoMeta = {
     anexos?: Array<{ url: string; nome?: string; mime?: string }>;
     motivo?: string;
   }> | null;
+  comprovante_pagamento?: ComprovantePagamento | null;
   [k: string]: unknown;
 };
 
