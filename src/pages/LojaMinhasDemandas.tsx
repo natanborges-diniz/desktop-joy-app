@@ -819,3 +819,67 @@ function AnexoCard({
     </button>
   );
 }
+
+function ComprovantePagamentoCard({ comp }: { comp: ComprovantePagamento }) {
+  const url = (comp.url ?? comp.anexo_url ?? null) as string | null;
+  const mime = (comp.mime ?? comp.anexo_mime ?? null) as string | null;
+  const nome = (comp.nome_arquivo ?? comp.anexo_nome ?? null) as string | null;
+  const pagoEm = (comp.pago_em ?? comp.data ?? null) as string | null;
+  const valorRaw = comp.valor_pago ?? comp.valor ?? null;
+  const valorNum =
+    typeof valorRaw === "number"
+      ? valorRaw
+      : typeof valorRaw === "string" && valorRaw
+        ? Number(String(valorRaw).replace(",", "."))
+        : null;
+  const valorFmt =
+    valorNum != null && Number.isFinite(valorNum)
+      ? valorNum.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      : null;
+  const forma = (comp.forma ?? comp.metodo ?? null) as string | null;
+
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+      <div className="mb-2 flex items-center gap-1.5">
+        <BadgeCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <p className="font-semibold text-foreground">Pagamento recebido</p>
+      </div>
+      <dl className="mb-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {valorFmt && (
+          <>
+            <dt>Valor</dt>
+            <dd className="text-right font-medium text-foreground">{valorFmt}</dd>
+          </>
+        )}
+        {forma && (
+          <>
+            <dt>Forma</dt>
+            <dd className="text-right font-medium text-foreground uppercase">{forma}</dd>
+          </>
+        )}
+        {pagoEm && (
+          <>
+            <dt>Pago em</dt>
+            <dd className="text-right font-medium text-foreground">
+              {format(new Date(pagoEm), "d MMM yyyy 'às' HH:mm", { locale: ptBR })}
+            </dd>
+          </>
+        )}
+        {comp.nsu && (
+          <>
+            <dt>NSU</dt>
+            <dd className="text-right font-medium text-foreground">{String(comp.nsu)}</dd>
+          </>
+        )}
+        {comp.bandeira && (
+          <>
+            <dt>Bandeira</dt>
+            <dd className="text-right font-medium text-foreground">{String(comp.bandeira)}</dd>
+          </>
+        )}
+      </dl>
+      {url && <AnexoCard url={url} nome={nome} mime={mime} meu={false} />}
+    </div>
+  );
+}
+
