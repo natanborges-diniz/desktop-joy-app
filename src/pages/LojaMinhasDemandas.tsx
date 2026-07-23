@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  BadgeCheck,
   FileText,
   History,
   ImageIcon,
