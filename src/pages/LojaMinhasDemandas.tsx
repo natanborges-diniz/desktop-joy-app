@@ -464,6 +464,10 @@ function DetalheSolicitacao({
       </SheetHeader>
 
       <div className="flex-1 space-y-3 overflow-y-auto scroll-thin bg-surface-muted p-3">
+        {meta.comprovante_pagamento && (
+          <ComprovantePagamentoCard comp={meta.comprovante_pagamento} />
+        )}
+
         {boletoStatus === "enviado" && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
             <div className="flex items-start justify-between gap-2">
