@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  BadgeCheck,
   FileText,
   History,
   ImageIcon,
@@ -32,6 +33,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+type ComprovantePagamento = {
+  url?: string | null;
+  anexo_url?: string | null;
+  mime?: string | null;
+  anexo_mime?: string | null;
+  nome_arquivo?: string | null;
+  anexo_nome?: string | null;
+  pago_em?: string | null;
+  data?: string | null;
+  valor_pago?: number | string | null;
+  valor?: number | string | null;
+  forma?: string | null;
+  metodo?: string | null;
+  nsu?: string | null;
+  bandeira?: string | null;
+  [k: string]: unknown;
+};
+
 type SolicitacaoMeta = {
   boleto_status?: string | null;
   boleto_revisao?: { ciclo?: number } | null;
@@ -41,6 +60,7 @@ type SolicitacaoMeta = {
     anexos?: Array<{ url: string; nome?: string; mime?: string }>;
     motivo?: string;
   }> | null;
+  comprovante_pagamento?: ComprovantePagamento | null;
   [k: string]: unknown;
 };
 
@@ -187,7 +207,7 @@ export default function LojaMinhasDemandas() {
     <div className="flex h-full flex-col">
       <header className="bg-gradient-header px-4 pt-safe text-header-foreground">
         <div className="flex h-14 items-center justify-between md:h-16">
-          <h1 className="text-lg font-semibold md:text-xl">Minhas demandas</h1>
+          <h1 className="text-lg font-semibold md:text-xl">Minhas Demandas</h1>
           <Button
             size="sm"
             variant="secondary"
@@ -248,6 +268,7 @@ export default function LojaMinhasDemandas() {
               const tipo: string | null = m.tipo ?? null;
               const lojaLbl: string | null = m.alias_loja ?? m.loja_nome ?? null;
               const venda: string | null = m.numero_venda ?? m.dados?.numero_venda ?? null;
+              const temComprovante = !!(m.comprovante_pagamento && (m.comprovante_pagamento.url || m.comprovante_pagamento.anexo_url));
               return (
                 <li key={s.id}>
                   <Card
@@ -268,6 +289,11 @@ export default function LojaMinhasDemandas() {
                           {lojaLbl && lojasFiltro.length > 1 && (
                             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                               {lojaLbl}
+                            </span>
+                          )}
+                          {temComprovante && (
+                            <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                              <BadgeCheck className="h-3 w-3" /> Pago
                             </span>
                           )}
                         </div>
@@ -438,6 +464,10 @@ function DetalheSolicitacao({
       </SheetHeader>
 
       <div className="flex-1 space-y-3 overflow-y-auto scroll-thin bg-surface-muted p-3">
+        {meta.comprovante_pagamento && (
+          <ComprovantePagamentoCard comp={meta.comprovante_pagamento} />
+        )}
+
         {boletoStatus === "enviado" && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
             <div className="flex items-start justify-between gap-2">
@@ -789,3 +819,67 @@ function AnexoCard({
     </button>
   );
 }
+
+function ComprovantePagamentoCard({ comp }: { comp: ComprovantePagamento }) {
+  const url = (comp.url ?? comp.anexo_url ?? null) as string | null;
+  const mime = (comp.mime ?? comp.anexo_mime ?? null) as string | null;
+  const nome = (comp.nome_arquivo ?? comp.anexo_nome ?? null) as string | null;
+  const pagoEm = (comp.pago_em ?? comp.data ?? null) as string | null;
+  const valorRaw = comp.valor_pago ?? comp.valor ?? null;
+  const valorNum =
+    typeof valorRaw === "number"
+      ? valorRaw
+      : typeof valorRaw === "string" && valorRaw
+        ? Number(String(valorRaw).replace(",", "."))
+        : null;
+  const valorFmt =
+    valorNum != null && Number.isFinite(valorNum)
+      ? valorNum.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      : null;
+  const forma = (comp.forma ?? comp.metodo ?? null) as string | null;
+
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+      <div className="mb-2 flex items-center gap-1.5">
+        <BadgeCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <p className="font-semibold text-foreground">Pagamento recebido</p>
+      </div>
+      <dl className="mb-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {valorFmt && (
+          <>
+            <dt>Valor</dt>
+            <dd className="text-right font-medium text-foreground">{valorFmt}</dd>
+          </>
+        )}
+        {forma && (
+          <>
+            <dt>Forma</dt>
+            <dd className="text-right font-medium text-foreground uppercase">{forma}</dd>
+          </>
+        )}
+        {pagoEm && (
+          <>
+            <dt>Pago em</dt>
+            <dd className="text-right font-medium text-foreground">
+              {format(new Date(pagoEm), "d MMM yyyy 'às' HH:mm", { locale: ptBR })}
+            </dd>
+          </>
+        )}
+        {comp.nsu && (
+          <>
+            <dt>NSU</dt>
+            <dd className="text-right font-medium text-foreground">{String(comp.nsu)}</dd>
+          </>
+        )}
+        {comp.bandeira && (
+          <>
+            <dt>Bandeira</dt>
+            <dd className="text-right font-medium text-foreground">{String(comp.bandeira)}</dd>
+          </>
+        )}
+      </dl>
+      {url && <AnexoCard url={url} nome={nome} mime={mime} meu={false} />}
+    </div>
+  );
+}
+
