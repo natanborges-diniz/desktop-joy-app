@@ -119,7 +119,7 @@ function DemandasListInner() {
     <div className="flex h-full flex-col">
       <header className="bg-gradient-header px-4 pt-safe text-header-foreground">
         <div className="flex h-14 items-center justify-between md:h-16">
-          <h1 className="text-lg font-semibold md:text-xl">Demandas</h1>
+          <h1 className="text-lg font-semibold md:text-xl">Notificações Externas</h1>
           <Button
             size="sm"
             variant="secondary"
@@ -129,7 +129,7 @@ function DemandasListInner() {
             <Plus className="h-4 w-4" /> Nova
           </Button>
         </div>
-        <p className="pb-3 text-sm text-white/80">Solicitações enviadas pelo operador</p>
+        <p className="pb-3 text-sm text-white/80">O que os setores/operadores enviaram para esta loja</p>
       </header>
 
       <div className="flex-1 overflow-y-auto scroll-thin p-4">
