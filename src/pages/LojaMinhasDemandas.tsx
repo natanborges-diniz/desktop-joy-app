@@ -207,7 +207,7 @@ export default function LojaMinhasDemandas() {
     <div className="flex h-full flex-col">
       <header className="bg-gradient-header px-4 pt-safe text-header-foreground">
         <div className="flex h-14 items-center justify-between md:h-16">
-          <h1 className="text-lg font-semibold md:text-xl">Minhas demandas</h1>
+          <h1 className="text-lg font-semibold md:text-xl">Minhas Demandas</h1>
           <Button
             size="sm"
             variant="secondary"
