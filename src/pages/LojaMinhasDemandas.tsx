@@ -268,6 +268,7 @@ export default function LojaMinhasDemandas() {
               const tipo: string | null = m.tipo ?? null;
               const lojaLbl: string | null = m.alias_loja ?? m.loja_nome ?? null;
               const venda: string | null = m.numero_venda ?? m.dados?.numero_venda ?? null;
+              const temComprovante = !!(m.comprovante_pagamento && (m.comprovante_pagamento.url || m.comprovante_pagamento.anexo_url));
               return (
                 <li key={s.id}>
                   <Card
@@ -288,6 +289,11 @@ export default function LojaMinhasDemandas() {
                           {lojaLbl && lojasFiltro.length > 1 && (
                             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                               {lojaLbl}
+                            </span>
+                          )}
+                          {temComprovante && (
+                            <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                              <BadgeCheck className="h-3 w-3" /> Pago
                             </span>
                           )}
                         </div>
