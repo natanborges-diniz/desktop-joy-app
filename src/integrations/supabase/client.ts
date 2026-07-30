@@ -2,8 +2,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://kvggebtnqmxydtwaumqz.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z2dlYnRucW14eWR0d2F1bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQ5OTAsImV4cCI6MjA4OTUyMDk5MH0.t9OTkyVB7daON1TQ24npjcc4cMDzFMMUPowXu1qcqR8";
+// Chave publishable nova (as API keys legadas do projeto foram desativadas).
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_z2ntN4TlU5CAevIAoxR0OA_WqWRukuZ";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
