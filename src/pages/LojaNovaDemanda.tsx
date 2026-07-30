@@ -611,7 +611,7 @@ export default function LojaNovaDemanda() {
     if (lojaNome) {
       payload.loja = { nome_loja: lojaNome, cod_empresa: codEmpresa };
     }
-    const { data, error } = await supabase.functions.invoke("criar-solicitacao-loja-v2", {
+    const { data, error } = await supabase.functions.invoke("criar-solicitacao-loja-v3", {
       body: payload,
     });
     setEnviando(false);
@@ -680,7 +680,7 @@ export default function LojaNovaDemanda() {
       payload.loja = { nome_loja: lojaNome, cod_empresa: codEmpresa };
       payload.loja_nome = lojaNome;
     }
-    const { data, error } = await supabase.functions.invoke("criar-solicitacao-loja-v2", {
+    const { data, error } = await supabase.functions.invoke("criar-solicitacao-loja-v3", {
       body: payload,
     });
     setEnviando(false);
