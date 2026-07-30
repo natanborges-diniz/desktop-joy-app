@@ -91,6 +91,7 @@ type Etapa = {
   validacao?: { min?: number; max?: number; min_length?: number; max_length?: number };
   obrigatorio?: boolean;
   opcoes?: { valor: string; rotulo: string }[];
+  valor_default?: string;
 };
 
 type Fluxo = {
@@ -362,6 +363,10 @@ export default function LojaNovaDemanda() {
       }
       if (tef === "loja" && lojaNome) {
         initial[et.campo] = lojaNome;
+      }
+      // Valor padrão configurado no fluxo (editável pela loja)
+      if (et.valor_default && !initial[et.campo]) {
+        initial[et.campo] = et.valor_default;
       }
     }
     setFluxoAtivo(fluxo);
