@@ -122,6 +122,10 @@ type Resultado = {
   tipo: string;
   url?: string;
   payment_link_id?: string;
+  txid?: string;
+  pix_copia_cola?: string;
+  qr_code_base64?: string;
+  expira_em?: string;
   cliente_envio_status?: "enviado" | "falhou" | "pulado";
   cliente_envio_erro?: string | null;
   metadata?: {
@@ -802,7 +806,7 @@ export default function LojaNovaDemanda() {
                 Tipo: {resultado.tipo} · Status: {resultado.status}
               </p>
 
-              {resultado.url && (
+              {resultado.url && !resultado.pix_copia_cola && (
                 <div className="mt-4 rounded-lg border border-border p-3">
                   <p className="text-xs font-medium text-muted-foreground">Link gerado</p>
                   <p className="mt-1 break-all text-sm">{resultado.url}</p>
@@ -834,6 +838,70 @@ export default function LojaNovaDemanda() {
                       ⚠️ Link gerado, mas não foi possível enviar ao cliente automaticamente
                       {resultado.cliente_envio_erro ? ` (${resultado.cliente_envio_erro})` : ""}.
                       Copie e envie manualmente.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {resultado.pix_copia_cola && (
+                <div className="mt-4 rounded-lg border border-border p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Pix gerado</p>
+
+                  {resultado.qr_code_base64 && (
+                    <div className="mt-3 flex justify-center">
+                      <img
+                        src={
+                          resultado.qr_code_base64.startsWith("data:")
+                            ? resultado.qr_code_base64
+                            : `data:image/png;base64,${resultado.qr_code_base64}`
+                        }
+                        alt="QR Code Pix"
+                        className="h-44 w-44 rounded-md border border-border bg-white p-2"
+                      />
+                    </div>
+                  )}
+
+                  <p className="mt-3 break-all rounded-md bg-muted/40 p-2 font-mono text-[11px] leading-snug">
+                    {resultado.pix_copia_cola}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => copiar(resultado.pix_copia_cola!)}>
+                      <Copy className="mr-1.5 h-4 w-4" /> Copiar código Pix
+                    </Button>
+                    {typeof navigator !== "undefined" && "share" in navigator && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          (navigator as Navigator & { share: (d: ShareData) => Promise<void> })
+                            .share(
+                              resultado.url
+                                ? { url: resultado.url, title: resultado.protocolo }
+                                : { text: resultado.pix_copia_cola, title: resultado.protocolo },
+                            )
+                            .catch(() => undefined)
+                        }
+                      >
+                        Compartilhar
+                      </Button>
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    ⏰ Válido por 24h. A confirmação de pagamento chega automaticamente aqui no app —
+                    sem precisar acionar o Financeiro.
+                  </p>
+
+                  {resultado.cliente_envio_status === "enviado" && (
+                    <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+                      ✅ Cobrança Pix enviada por WhatsApp para o cliente.
+                    </div>
+                  )}
+                  {resultado.cliente_envio_status === "falhou" && (
+                    <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                      ⚠️ Pix gerado, mas não foi possível enviar ao cliente automaticamente
+                      {resultado.cliente_envio_erro ? ` (${resultado.cliente_envio_erro})` : ""}.
+                      Copie o código ou compartilhe manualmente.
                     </div>
                   )}
                 </div>
