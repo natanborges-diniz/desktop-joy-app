@@ -385,7 +385,9 @@ export default function LojaNovaDemanda() {
 
   async function carregarCpfsAprovados(loja: string) {
     setCarregandoCpfs(true);
-    const desdeIso = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString();
+    // Regra de negócio: consulta aprovada vale 30 dias e é de uso único
+    // (o filtro boleto_solicitacao_id nulo abaixo cobre o uso único).
+    const desdeIso = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const { data, error } = await supabase
       .from("solicitacoes")
       .select("id,protocolo,created_at,metadata")
@@ -1086,7 +1088,7 @@ export default function LojaNovaDemanda() {
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         Para gerar boleto é preciso ter uma Consulta de CPF aprovada
-                        pelo financeiro nos últimos 60 dias.
+                        pelo financeiro nos últimos 30 dias.
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {opcaoConsultaCpf && (
